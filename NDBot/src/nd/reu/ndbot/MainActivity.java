@@ -28,10 +28,6 @@ public class MainActivity extends Activity
         mControlsButton = (Button) findViewById(R.id.controlsActivityButton);
         mControlsButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
-                // Send a message using content of the edit text widget
-                //TextView view = (TextView) findViewById(R.id.edit_text_out);
-                //String message = view.getText().toString();
-                //sendMessage("w");
             	Intent myIntent = new Intent(v.getContext(), ControlsActivity.class);
                 startActivityForResult(myIntent, 0);
             }

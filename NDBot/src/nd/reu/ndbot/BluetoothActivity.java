@@ -19,10 +19,16 @@ package nd.reu.ndbot;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Collections;
+
+//import nd.reu.ndbot.BluetoothActivity.AsyncThread;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
@@ -55,10 +61,10 @@ public class BluetoothActivity extends Activity {
     public Boolean isCancelled = false;
     DataInputStream input;
     DataOutputStream output;
-    private WifiManager wifiManager;
     private TextView wifiStatus;
     private TextView bluetoothStatus;
-	
+    private TextView receivedMessage;
+    
     // Debugging
     private static final String TAG = "NDBotBluetooth";
     private static final boolean D = true;
@@ -80,8 +86,9 @@ public class BluetoothActivity extends Activity {
 
     // Layout Views
     private TextView mTitle;
-    private Button mConnectButton;
-    private Button mDiscoverableButton;
+    private Button mWifiButton;
+    private Button mBluetoothButton;
+    private Button mResetButton;
 
     // Name of the connected device
     private String mConnectedDeviceName = null;
@@ -91,12 +98,14 @@ public class BluetoothActivity extends Activity {
     private BluetoothAdapter mBluetoothAdapter = null;
     // Member object for the chat services
     private BluetoothActivityService mChatService = null;
-
+    // Wifi Manager
+    private WifiManager wifiManager;
+    
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if(D) Log.e(TAG, "+++ ON CREATE +++");
-
+        
         // Set up the window layout
         requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
         setContentView(R.layout.bluetooth);
@@ -109,16 +118,10 @@ public class BluetoothActivity extends Activity {
         
         wifiStatus = (TextView) findViewById(R.id.wifiStatus_id);
         bluetoothStatus = (TextView) findViewById(R.id.bluetoothStatus_id);
+        receivedMessage = (TextView) findViewById(R.id.receivedMessage_id);
 
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
-        // enable wifi connection if not already on
-        wifiManager = (WifiManager) this.getSystemService(this.WIFI_SERVICE);
-        if (!wifiManager.isWifiEnabled()) {
-        	toast("Enabling Wifi...");
-        	wifiManager.setWifiEnabled(true);
-        }
         
         // If the adapter is null, then Bluetooth is not supported
         if (mBluetoothAdapter == null) {
@@ -133,30 +136,46 @@ public class BluetoothActivity extends Activity {
         super.onStart();
         if(D) Log.e(TAG, "++ ON START ++");
 
-        // If BT is not on, request that it be enabled.
-        // setupChat() will then be called during onActivityResult
-        if (!mBluetoothAdapter.isEnabled()) {
-            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
-        // Otherwise, setup the chat session
-        } else {
-            if (mChatService == null) setupChat();
-        }
+        mWifiButton = (Button) findViewById(R.id.wifiButton_id);
+        mWifiButton.setOnClickListener(new OnClickListener() {
+            public void onClick(View v) {
+            	SERVERIP = getLocalIpAddress();
+                new AsyncThread().execute();
+            }
+        });
         
-        // Initialize the buttons with listeners for click events
-        mConnectButton = (Button) findViewById(R.id.bluetoothButton);
-        mConnectButton.setOnClickListener(new OnClickListener() {
+        mBluetoothButton = (Button) findViewById(R.id.bluetoothButton_id);
+        mBluetoothButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
             	connectToBluetooth();
             }
         });
         
-        mDiscoverableButton = (Button) findViewById(R.id.wifiButton);
-        mDiscoverableButton.setOnClickListener(new OnClickListener() {
+        mResetButton = (Button) findViewById(R.id.resetButton_id);
+        mResetButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
-            	
+            	restartActivity();
             }
         });
+        
+        mResetButton.setEnabled(false);
+        
+        // enable wifi connection if not already on
+        wifiManager = (WifiManager) this.getSystemService(this.WIFI_SERVICE);
+        if (!wifiManager.isWifiEnabled()) {
+        	toast("Enabling Wifi...");
+        	wifiManager.setWifiEnabled(true);
+        }
+        
+        // If BT is not on, request that it be enabled.
+        // setupBluetoothConnection() will then be called during onActivityResult
+        if (!mBluetoothAdapter.isEnabled()) {
+            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+        // Otherwise, setup the chat session
+        } else {
+            if (mChatService == null) setupBluetoothConnection();
+        }
     }
 
     @Override
@@ -176,8 +195,8 @@ public class BluetoothActivity extends Activity {
         }
     }
 
-    private void setupChat() {
-        Log.d(TAG, "setupChat()");
+    private void setupBluetoothConnection() {
+        Log.d(TAG, "setupBluetoothConnection()");
 
         // Initialize the BluetoothChatService to perform bluetooth connections
         mChatService = new BluetoothActivityService(this, mHandler);
@@ -219,7 +238,7 @@ public class BluetoothActivity extends Activity {
     private void sendMessage(String message) {
         // Check that we're actually connected before trying anything
         if (mChatService.getState() != BluetoothActivityService.STATE_CONNECTED) {
-            Toast.makeText(this, R.string.not_connected, Toast.LENGTH_SHORT).show();
+            //Toast.makeText(this, R.string.not_connected, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -246,14 +265,17 @@ public class BluetoothActivity extends Activity {
                 case BluetoothActivityService.STATE_CONNECTED:
                     mTitle.setText(R.string.title_connected_to);
                     mTitle.append(mConnectedDeviceName);
+                    bluetoothStatus.setText("Connected");
                    // mConversationArrayAdapter.clear();
                     break;
                 case BluetoothActivityService.STATE_CONNECTING:
                     mTitle.setText(R.string.title_connecting);
+                    bluetoothStatus.setText("Connecting...");
                     break;
                 case BluetoothActivityService.STATE_LISTEN:
                 case BluetoothActivityService.STATE_NONE:
                     mTitle.setText(R.string.title_not_connected);
+                    bluetoothStatus.setText("Not Connected");
                     break;
                 }
                 break;
@@ -290,7 +312,7 @@ public class BluetoothActivity extends Activity {
             // When the request to enable Bluetooth returns
             if (resultCode == Activity.RESULT_OK) {
                 // Bluetooth is now enabled, so set up a chat session
-                setupChat();
+                setupBluetoothConnection();
             } else {
                 // User did not enable Bluetooth or an error occured
                 Log.d(TAG, "BT not enabled");
@@ -331,7 +353,7 @@ public class BluetoothActivity extends Activity {
     
     class AsyncThread extends AsyncTask<Void, Void, Void> {
     	
-    	String bacon = "Tralala";
+    	String bacon = "x";
     	int state = 0;
     	
 		@Override
@@ -376,9 +398,11 @@ public class BluetoothActivity extends Activity {
 			switch (state) {
 				case 0:
                     wifiStatus.setText("Listening on IP: " + SERVERIP);
+                    mResetButton.setEnabled(true);
 					break;
 				case 1:
                     wifiStatus.setText("Connected.");
+                    mResetButton.setEnabled(true);
 					break;
 				case 2:
 					wifiStatus.setText("Oops. Connection interrupted. Please reconnect your phones.");
@@ -392,14 +416,49 @@ public class BluetoothActivity extends Activity {
 				default:
 					wifiStatus.setText("Not Connected");
 					break;
-			}		
+			}
+			sendMessage(bacon);
+			receivedMessage.setText(bacon);
 		}
     }
     
+    private String getLocalIpAddress()
+    {
+           try
+           {
+             for (NetworkInterface intf : Collections.list(NetworkInterface.getNetworkInterfaces()))
+             {
+                 for (InetAddress addr : Collections.list(intf.getInetAddresses()))
+                 {
+                     if (!addr.isLoopbackAddress())
+                         return addr.getHostAddress();
+                 }
+             }
+             throw new RuntimeException("No network connections found.");
+           }
+           catch (Exception ex)
+           {
+                toast("Error getting IP address: " + ex.getLocalizedMessage());
+                return "Unknown";
+           }
+    }
 
     public void toast(String text) {
     	Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
     
+    public void restartActivity() {
+    	try
+		{
+			ss.close();
+		} catch (IOException e)
+		{
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Intent intent = getIntent();
+		finish();
+		startActivity(intent);
+    }
     
 }

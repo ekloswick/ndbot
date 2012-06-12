@@ -19,16 +19,22 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     >
-    <LinearLayout
-        android:orientation="horizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        >
-
-    </LinearLayout>
 
     <Button
-        android:id="@+id/bluetoothButton"
+        android:id="@+id/wifiButton_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Connect to Controller (Start Wifi)" />
+
+     <TextView
+         android:id="@+id/wifiStatus_id"
+         android:layout_width="wrap_content"
+         android:layout_height="wrap_content"
+         android:text="Wifi Not Connected"
+         android:textAppearance="?android:attr/textAppearanceLarge" />
+
+    <Button
+        android:id="@+id/bluetoothButton_id"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Connect to Robot (Bluetooth)" />
@@ -41,16 +47,16 @@
         android:textAppearance="?android:attr/textAppearanceLarge" />
 
     <Button
-        android:id="@+id/wifiButton"
+        android:id="@+id/resetButton_id"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Connect to Controller (Start Wifi)" />
+        android:text="Reset both connections" />
 
     <TextView
-        android:id="@+id/wifiStatus_id"
+        android:id="@+id/receivedMessage_id"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Wifi Not Connected"
+        android:text="Input will appear here"
         android:textAppearance="?android:attr/textAppearanceLarge" />
 
 </LinearLayout>
