@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.util.ArrayList;
 
 import android.app.Activity;
 import android.net.wifi.WifiManager;
@@ -26,9 +27,10 @@ public class ControlsActivity extends Activity
     DataInputStream input;
     DataOutputStream output;
     private String command = "";
-    private String serverIpAddress = "10.24.189.99";
+    private String serverIpAddress = null;// Im changing this
     private boolean connected = false;
     private boolean sendData = false;
+    private ArrayList <Boolean> connections = new ArrayList<Boolean>();
 	
 	// Buttons and Fields
 	private EditText mIPAddress;
@@ -66,7 +68,7 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "w";
-                if (connected)
+                if (!connections.isEmpty())
                 	sendData = true;
             }
         });
@@ -76,7 +78,7 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "s";
-                if (connected)
+                if (!connections.isEmpty())
                 	sendData = true;
             }
         });
@@ -86,7 +88,7 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "a";
-                if (connected)
+                if (!connections.isEmpty())
                 	sendData = true;
             }
         });
@@ -96,7 +98,7 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "d";
-                if (connected)
+                if (!connections.isEmpty())
                 	sendData = true;
             }
         });
@@ -106,7 +108,7 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "q";
-                if (connected)
+                if (!connections.isEmpty())
                 	sendData = true;
             }
         });
@@ -116,7 +118,7 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "e";
-                if (connected)
+                if (!connections.isEmpty())
                 	sendData = true;
             }
         });
@@ -126,7 +128,7 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "x";
-                if (connected)
+                if (!connections.isEmpty())
                 	sendData = true;
             }
         });
@@ -134,13 +136,13 @@ public class ControlsActivity extends Activity
         mWifiButton = (Button) findViewById(R.id.connectBotButton);
         mWifiButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
-            	if (!connected) {
            		 toast("Connecting...");
-                    //serverIpAddress = mIPAddress.getText().toString();
+                    serverIpAddress = mIPAddress.getText().toString();
                     if (!serverIpAddress.equals("")) {
-                    	new AsyncThread().execute();
+                    	AsyncThread blah = new AsyncThread();
+                    	connections.add(true);
+                    	blah.execute();
                     }
-                }
             }
         });
 	}
@@ -149,7 +151,6 @@ public class ControlsActivity extends Activity
     	
     	//String bacon = "Happy happy joy joy";
     	int state = 0;
-    	
 		@Override
 		protected Void doInBackground(Void... params) {			
 			try {
@@ -157,13 +158,13 @@ public class ControlsActivity extends Activity
                 Log.d("ClientActivity", "C: Connecting...");
                 Socket socket = new Socket(serverAddr, 8080);
                 PrintWriter output = new PrintWriter(socket.getOutputStream());
-                BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+               // BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 state = 0;
                 
-                connected = socket.isConnected();
+               // connected = socket.isConnected();
                 publishProgress();
                 
-                while (connected) {
+                while (!connections.isEmpty()) {
                     try {
                         state = 1;
                         if (sendData) {
@@ -173,10 +174,10 @@ public class ControlsActivity extends Activity
 	                        output.flush();
                         }
                         
-                        if (!connected) {
+                        if (connections.isEmpty()) {
                             state = 2;
                             output.close();
-                            input.close();
+                           // input.close();
                         }
 
                         publishProgress();
@@ -189,7 +190,7 @@ public class ControlsActivity extends Activity
                 Log.d("ClientActivity", "C: Closed.");
             } catch (Exception e) {
                 Log.e("ClientActivity", "C: Error", e);
-                connected = false;
+                connections.remove(this);
             }
 			return null;
 		}
