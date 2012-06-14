@@ -29,9 +29,10 @@ public class ControlsActivity extends Activity
     private String command = "";
     private String serverIpAddress = null;// Im changing this
     private boolean connected = false;
-    private boolean sendData = false;
-    private ArrayList <Boolean> connections = new ArrayList<Boolean>();
-	
+    private ArrayList <Boolean> sendData = new ArrayList<Boolean>();
+   // private ArrayList <Boolean> connections = new ArrayList<Boolean>();
+    private ArrayList <AsyncTask<Void, Void, Void> > connections = new ArrayList<AsyncTask<Void, Void, Void> >();
+    
 	// Buttons and Fields
 	private EditText mIPAddress;
     private TextView wifiStatus;
@@ -68,8 +69,8 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "w";
-                if (!connections.isEmpty())
-                	sendData = true;
+                	for(int i =0; i < connections.size(); i++)
+                		((AsyncThread) connections.get(i)).setSend(true);
             }
         });
         
@@ -78,8 +79,8 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "s";
-                if (!connections.isEmpty())
-                	sendData = true;
+                	for(int i =0; i < connections.size(); i++)
+                		((AsyncThread) connections.get(i)).setSend(true);
             }
         });
         
@@ -88,8 +89,8 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "a";
-                if (!connections.isEmpty())
-                	sendData = true;
+                	for(int i =0; i < connections.size(); i++)
+                		((AsyncThread) connections.get(i)).setSend(true);
             }
         });
         
@@ -98,8 +99,8 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "d";
-                if (!connections.isEmpty())
-                	sendData = true;
+                	for(int i =0; i < connections.size(); i++)
+                		((AsyncThread) connections.get(i)).setSend(true);
             }
         });
         
@@ -108,8 +109,8 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "q";
-                if (!connections.isEmpty())
-                	sendData = true;
+                	for(int i =0; i < connections.size(); i++)
+                		((AsyncThread) connections.get(i)).setSend(true);
             }
         });
         
@@ -118,8 +119,8 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "e";
-                if (!connections.isEmpty())
-                	sendData = true;
+                	for(int i =0; i < connections.size(); i++)
+                		((AsyncThread) connections.get(i)).setSend(true);
             }
         });
         
@@ -128,8 +129,8 @@ public class ControlsActivity extends Activity
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
                 command = "x";
-                if (!connections.isEmpty())
-                	sendData = true;
+                	for(int i =0; i < connections.size(); i++)
+                		((AsyncThread) connections.get(i)).setSend(true);
             }
         });
         
@@ -140,15 +141,24 @@ public class ControlsActivity extends Activity
                     serverIpAddress = mIPAddress.getText().toString();
                     if (!serverIpAddress.equals("")) {
                     	AsyncThread blah = new AsyncThread();
-                    	connections.add(true);
+                    	connections.add(blah);
+                    	((AsyncThread) connections.get(connections.size()-1)).setSend(false);
+                    	//sendData.add(new Boolean(false));
                     	blah.execute();
                     }
             }
         });
 	}
 	
+	public void sendMessage(){
+		
+		
+		
+		
+	}
+	
 	class AsyncThread extends AsyncTask<Void, Void, Void> {
-    	
+    	private boolean send;
     	//String bacon = "Happy happy joy joy";
     	int state = 0;
 		@Override
@@ -167,17 +177,18 @@ public class ControlsActivity extends Activity
                 while (!connections.isEmpty()) {
                     try {
                         state = 1;
-                        if (sendData) {
+                        if (send) {
                         	state = 3;
-	                        sendData = false;
+	                        send = false;
 	                        output.println(command);
 	                        output.flush();
                         }
                         
-                        if (connections.isEmpty()) {
+                        if (connections.indexOf(this) == -1) {
                             state = 2;
                             output.close();
                            // input.close();
+                            break;
                         }
 
                         publishProgress();
@@ -215,6 +226,9 @@ public class ControlsActivity extends Activity
 					wifiStatus.setText("WTF");
 					break;
 			}
+		}
+		public void setSend(boolean b){
+			send=b;
 		}
     }
 	
