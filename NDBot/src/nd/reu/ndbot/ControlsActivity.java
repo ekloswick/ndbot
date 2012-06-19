@@ -7,9 +7,14 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 
 import android.app.Activity;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -23,6 +28,7 @@ import android.widget.Toast;
 
 public class ControlsActivity extends Activity
 {
+	private static int count = 0;
     private WifiManager wifiManager;
     DataInputStream input;
     DataOutputStream output;
@@ -44,6 +50,15 @@ public class ControlsActivity extends Activity
     private Button mForwardRightButton;
     private Button mStopButton;
     private Button mWifiButton;
+    
+    //text fields to show speed values of accelerometer
+    private TextView sensorX;
+    private TextView sensorY;
+    
+    //Sensor
+    private SensorManager mSensorManager;
+    private float mSensorX;
+    private float mSensorY;
 	
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -62,6 +77,20 @@ public class ControlsActivity extends Activity
 		
 		mIPAddress = (EditText) findViewById(R.id.ipAddress_id);
 		wifiStatus = (TextView) findViewById(R.id.wifiConnected_id);
+		
+		//Accelerometer
+		sensorX = (TextView) findViewById(R.id.sensorX_id);
+		sensorY = (TextView) findViewById(R.id.sensorY_id);
+		
+		
+		
+		
+		
+		mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+		Sensor mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		mSensorManager.registerListener(listener, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+		
+		//Text view tests
 		
 		// Initialize the buttons with listeners for click events
         mForwardButton = (Button) findViewById(R.id.forwardButton);
@@ -149,6 +178,40 @@ public class ControlsActivity extends Activity
             }
         });
 	}
+	private SensorEventListener listener=new SensorEventListener() {
+		
+		@Override
+		public void onAccuracyChanged(Sensor sensor, int accuracy) {
+			// not used
+			
+		}
+
+		@Override
+		public void onSensorChanged(SensorEvent event) {
+			if(event.sensor.getType() != Sensor.TYPE_ACCELEROMETER)
+				return;
+			count++;
+			/*if(count <6)
+			{
+				count++;
+				return;
+			}
+			*/	
+			mSensorX = event.values[0];
+			mSensorY = event.values[1];
+			DecimalFormat df = new DecimalFormat("#.##");
+			String mSensorXString = df.format(mSensorX);
+			String mSensorYString = df.format(mSensorY);
+			sensorX.setText(mSensorXString);
+			sensorY.setText(mSensorYString);
+			command = mSensorXString+","+ mSensorYString;
+        	for(int i =0; i < connections.size(); i++)
+        		((AsyncThread) connections.get(i)).setSend(true);
+			count =0;
+		}
+	};
+	
+	
 	
 	public void sendMessage(){
 		
@@ -235,5 +298,10 @@ public class ControlsActivity extends Activity
 	public void toast(String text) {
     	Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
+	
+	public void onStop(){
+		mSensorManager.unregisterListener(listener);
+		super.onStop();
+	}
 }
 

@@ -44,6 +44,18 @@
         android:layout_height="wrap_content"
         android:text="Forward" />
 
+    <TextView
+        android:id="@+id/sensorX_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="X values go here" />
+
+    <TextView
+        android:id="@+id/sensorY_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Y values go here" />
+
     <Button
         android:id="@+id/reverseButton"
         android:layout_width="wrap_content"

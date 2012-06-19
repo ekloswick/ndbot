@@ -39,7 +39,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".ControlsActivity"
-                  android:configChanges="orientation|keyboardHidden"/>
+                  android:configChanges="orientation|keyboardHidden" android:screenOrientation="landscape"/>
         <activity android:name=".BluetoothActivity"
                   android:configChanges="orientation|keyboardHidden" >
             <intent-filter>

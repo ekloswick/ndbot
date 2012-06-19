@@ -59,4 +59,11 @@
         android:text="Input will appear here"
         android:textAppearance="?android:attr/textAppearanceLarge" />
 
+    <TextView
+        android:id="@+id/bluetoothMessage_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Bluetooth talk back here"
+        android:textAppearance="?android:attr/textAppearanceLarge" />
+
 </LinearLayout>

@@ -86,6 +86,7 @@ public class BluetoothActivity extends Activity {
 
     // Layout Views
     private TextView mTitle;
+    private TextView bluetoothMessage;
     private Button mWifiButton;
     private Button mBluetoothButton;
     private Button mResetButton;
@@ -115,6 +116,7 @@ public class BluetoothActivity extends Activity {
         mTitle = (TextView) findViewById(R.id.title_left_text);
         mTitle.setText(R.string.bluetooth_string);
         mTitle = (TextView) findViewById(R.id.title_right_text);
+        bluetoothMessage = (TextView) findViewById(R.id.bluetoothMessage_id);
         
         wifiStatus = (TextView) findViewById(R.id.wifiStatus_id);
         bluetoothStatus = (TextView) findViewById(R.id.bluetoothStatus_id);
@@ -242,12 +244,14 @@ public class BluetoothActivity extends Activity {
             return;
         }
 
+        message = message + "r";
         // Check that there's actually something to send
         if (message.length() > 0) {
             // Get the message bytes and tell the BluetoothChatService to write
             byte[] send = message.getBytes();
             mChatService.write(send);
-
+          //  Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+          //  mChatService.
             // Reset out string buffer to zero and clear the edit text field
             mOutStringBuffer.setLength(0);
            // mOutEditText.setText(mOutStringBuffer);
@@ -278,6 +282,17 @@ public class BluetoothActivity extends Activity {
                     bluetoothStatus.setText("Not Connected");
                     break;
                 }
+
+                break;
+            case MESSAGE_READ:
+                byte[] readBuf = (byte[]) msg.obj;
+                // construct a string from the valid bytes in the buffer
+               // String readMessage = new String(readBuf, 0, msg.arg1);
+                String readMessage = new String(readBuf);
+               // bluetoothMessage.setText("");
+                bluetoothMessage.setText(readMessage);
+                //Toast.makeText(getApplicationContext(), readMessage,
+                //        Toast.LENGTH_SHORT).show();
                 break;
             case MESSAGE_DEVICE_NAME:
                 // save the connected device's name
@@ -353,7 +368,7 @@ public class BluetoothActivity extends Activity {
     
     class AsyncThread extends AsyncTask<Void, Void, Void> {
     	
-    	String bacon = "x";
+    	String bacon = "0,0";
     	int state = 0;
     	
 		@Override
@@ -417,9 +432,80 @@ public class BluetoothActivity extends Activity {
 					wifiStatus.setText("Not Connected");
 					break;
 			}
-			sendMessage(bacon);
+			interpretAccelerometer(bacon);
+			//sendMessage(bacon);
 			receivedMessage.setText(bacon);
 		}
+    }
+    private void interpretAccelerometer(String xy){
+    	
+    	String[] strArr = xy.split(",");
+    	//sendMessage(strArr[0]);
+    	//float x = Float.valueOf(strArr[0].trim()).floatValue();
+    	float x = Float.parseFloat(strArr[0]);
+    	float y = new Float(strArr[1]);
+
+    	float xVar=0, yVar=0;
+    	int m = 0, ix = 0, iy = 0;
+    	
+    	if(x>3 && x<10)
+    	{
+    		xVar= (float) ((x-3)/7.0*255);
+    		ix = Math.round(xVar);
+    	}
+    		
+    	else if(x<-3 && x>-10)
+    	{
+    		xVar = (float) ((-x-3)/7.0*255);
+    		ix = Math.round(xVar);
+    		Math.abs(xVar);
+    	}
+    	if(y>3 && y<10)
+    	{
+    		yVar= (float) ((y-3)/7.0*255);
+        	iy = Math.round(yVar);
+    	}
+    	else if(y<-3 && y>-10)
+    	{
+    		yVar = (float) ((-y-3)/7.0*255);
+        	iy = Math.round(yVar);
+    		Math.abs(yVar);
+    	}
+    	if(xVar> 255)
+    		xVar = 255;
+    	if(yVar > 255)
+    		yVar = 255;
+
+    	if(x < -3)
+    	{
+    		if(y>3)
+    			m =3;
+    		else if(y < -3)
+    			m = 1;
+    		else
+    			m=2;
+    	}
+    	else if(x >3)
+    	{
+    		if(y>3)
+    			m=8;
+    		else if(y < -3)
+    			m=6;
+    		else
+    			m = 7;
+    	}
+    	else
+    	{
+    		if(y>3)
+    			m =5;
+    		else if(y < -3)
+    			m =4;
+    		else
+    			m=0;
+    	}
+    	
+    	String message = Integer.toString(m)+","+Integer.toString(ix)+","+Integer.toString(iy);
+    	sendMessage(message);
     }
     
     private String getLocalIpAddress()
