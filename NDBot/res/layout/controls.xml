@@ -38,6 +38,12 @@
         android:layout_height="wrap_content"
         android:text="Connect to Bot (Wifi)" />
 
+    <TextView
+        android:id="@+id/bot_accel_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Bot Accelerometer Readings" />
+
     <Button
         android:id="@+id/forwardButton"
         android:layout_width="wrap_content"

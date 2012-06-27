@@ -26,14 +26,18 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.text.DecimalFormat;
 import java.util.Collections;
 
-//import nd.reu.ndbot.BluetoothActivity.AsyncThread;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -64,7 +68,7 @@ public class BluetoothActivity extends Activity {
     private TextView wifiStatus;
     private TextView bluetoothStatus;
     private TextView receivedMessage;
-    
+    private TextView botAccel;
     // Debugging
     private static final String TAG = "NDBotBluetooth";
     private static final boolean D = true;
@@ -90,6 +94,13 @@ public class BluetoothActivity extends Activity {
     private Button mWifiButton;
     private Button mBluetoothButton;
     private Button mResetButton;
+    
+    //Sensor
+    private SensorManager mSensorManager;
+    private float mSensorX;
+    private float mSensorY;
+    private boolean send;
+    String toAndroid;
 
     // Name of the connected device
     private String mConnectedDeviceName = null;
@@ -121,6 +132,7 @@ public class BluetoothActivity extends Activity {
         wifiStatus = (TextView) findViewById(R.id.wifiStatus_id);
         bluetoothStatus = (TextView) findViewById(R.id.bluetoothStatus_id);
         receivedMessage = (TextView) findViewById(R.id.receivedMessage_id);
+        botAccel = (TextView) findViewById(R.id.bot_accel_id);
 
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -131,6 +143,11 @@ public class BluetoothActivity extends Activity {
             finish();
             return;
         }
+        
+        //SensorManager
+      mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        
+        
     }
 
     @Override
@@ -195,6 +212,8 @@ public class BluetoothActivity extends Activity {
               mChatService.start();
             }
         }
+        Sensor mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		mSensorManager.registerListener(listener, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     private void setupBluetoothConnection() {
@@ -211,6 +230,7 @@ public class BluetoothActivity extends Activity {
     public synchronized void onPause() {
         super.onPause();
         if(D) Log.e(TAG, "- ON PAUSE -");
+        mSensorManager.unregisterListener(listener);
     }
 
     @Override
@@ -389,11 +409,13 @@ public class BluetoothActivity extends Activity {
                     while (!isCancelled) {
                     	state = 1;
                     	publishProgress();
-                    	
                         bacon = input.readLine();
-                        output.println("Roger");
-                        output.flush();
-                        
+                        if(send)
+                        {
+                        	output.println(toAndroid);
+                        	//output.flush();
+                        	send = false;
+                        }
                     	publishProgress();
                     }
                 } else {
@@ -437,6 +459,8 @@ public class BluetoothActivity extends Activity {
 			receivedMessage.setText(bacon);
 		}
     }
+    
+    
     private void interpretAccelerometer(String xy){
     	
     	String[] strArr = xy.split(",");
@@ -533,6 +557,29 @@ public class BluetoothActivity extends Activity {
     	Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
     
+    
+	private SensorEventListener listener = new SensorEventListener() {
+		
+		@Override
+		public void onAccuracyChanged(Sensor sensor, int accuracy) {
+			// not used
+			
+		}
+
+		@Override
+		public void onSensorChanged(SensorEvent event) {
+			if(event.sensor.getType() != Sensor.TYPE_ACCELEROMETER)//linear_acceleration if new phones
+				return;
+			mSensorX = event.values[0];
+			mSensorY = event.values[1];
+			DecimalFormat df = new DecimalFormat("#.##");
+			String mSensorXString = df.format(mSensorX);
+			String mSensorYString = df.format(mSensorY);
+			toAndroid = mSensorXString + "," + mSensorYString;
+			send = true;
+			botAccel.setText(toAndroid);
+		}
+	};
     public void restartActivity() {
     	try
 		{

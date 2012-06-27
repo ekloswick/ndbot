@@ -54,6 +54,7 @@ public class ControlsActivity extends Activity
     //text fields to show speed values of accelerometer
     private TextView sensorX;
     private TextView sensorY;
+    private TextView botSensor;
     
     //Sensor
     private SensorManager mSensorManager;
@@ -81,9 +82,7 @@ public class ControlsActivity extends Activity
 		//Accelerometer
 		sensorX = (TextView) findViewById(R.id.sensorX_id);
 		sensorY = (TextView) findViewById(R.id.sensorY_id);
-		
-		
-		
+		botSensor = (TextView) findViewById(R.id.bot_accel_id);
 		
 		
 		mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -222,6 +221,8 @@ public class ControlsActivity extends Activity
 	
 	class AsyncThread extends AsyncTask<Void, Void, Void> {
     	private boolean send;
+    	private boolean accelEnable = true;
+    	String accelRead= "Bot Reading";
     	//String bacon = "Happy happy joy joy";
     	int state = 0;
 		@Override
@@ -231,7 +232,7 @@ public class ControlsActivity extends Activity
                 Log.d("ClientActivity", "C: Connecting...");
                 Socket socket = new Socket(serverAddr, 8080);
                 PrintWriter output = new PrintWriter(socket.getOutputStream());
-               // BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 state = 0;
                 
                // connected = socket.isConnected();
@@ -246,11 +247,15 @@ public class ControlsActivity extends Activity
 	                        output.println(command);
 	                        output.flush();
                         }
+                        if(accelEnable)
+                        {
+                        	accelRead = input.readLine();
+                        }
                         
                         if (connections.indexOf(this) == -1) {
                             state = 2;
                             output.close();
-                           // input.close();
+                            input.close();
                             break;
                         }
 
@@ -277,6 +282,7 @@ public class ControlsActivity extends Activity
 					break;
 				case 1:
 					wifiStatus.setText("Connected");
+					botSensor.setText(accelRead);
 					break;
 				case 2:
 					wifiStatus.setText("Disconnected");
@@ -292,6 +298,9 @@ public class ControlsActivity extends Activity
 		}
 		public void setSend(boolean b){
 			send=b;
+		}
+		public void setAccelEnable(boolean b){
+			accelEnable=b;
 		}
     }
 	
