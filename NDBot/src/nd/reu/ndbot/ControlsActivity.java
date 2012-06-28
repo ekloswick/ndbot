@@ -23,6 +23,7 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -43,13 +44,13 @@ public class ControlsActivity extends Activity
 	// Buttons and Fields
 	private EditText mIPAddress;
     private TextView wifiStatus;
-	private Button mForwardButton;
-    private Button mReverseButton;
-    private Button mTurnLeftButton;
-    private Button mTurnRightButton;
-    private Button mForwardLeftButton;
-    private Button mForwardRightButton;
-    private Button mStopButton;
+	private ImageButton mForwardButton;
+    private ImageButton mReverseButton;
+    private ImageButton mTurnLeftButton;
+    private ImageButton mTurnRightButton;
+    private ImageButton mForwardLeftButton;
+    private ImageButton mForwardRightButton;
+    private ImageButton mStopButton;
     private Button mWifiButton;
     
     //text fields to show speed values of accelerometer
@@ -90,7 +91,7 @@ public class ControlsActivity extends Activity
 		//Text view tests
 		
 		// Initialize the buttons with listeners for click events
-        mForwardButton = (Button) findViewById(R.id.forwardButton);
+        mForwardButton = (ImageButton) findViewById(R.id.forwardButton);
         mForwardButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
@@ -100,7 +101,7 @@ public class ControlsActivity extends Activity
             }
         });
         
-        mReverseButton = (Button) findViewById(R.id.reverseButton);
+        mReverseButton = (ImageButton) findViewById(R.id.reverseButton);
         mReverseButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
@@ -110,7 +111,7 @@ public class ControlsActivity extends Activity
             }
         });
         
-        mTurnLeftButton = (Button) findViewById(R.id.turnLeftButton);
+        mTurnLeftButton = (ImageButton) findViewById(R.id.turnLeftButton);
         mTurnLeftButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
@@ -120,7 +121,7 @@ public class ControlsActivity extends Activity
             }
         });
         
-        mTurnRightButton = (Button) findViewById(R.id.turnRightButton);
+        mTurnRightButton = (ImageButton) findViewById(R.id.turnRightButton);
         mTurnRightButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
@@ -130,7 +131,7 @@ public class ControlsActivity extends Activity
             }
         });
         
-        mForwardLeftButton = (Button) findViewById(R.id.forwardLeftButton);
+        mForwardLeftButton = (ImageButton) findViewById(R.id.forwardLeftButton);
         mForwardLeftButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
@@ -140,7 +141,7 @@ public class ControlsActivity extends Activity
             }
         });
         
-        mForwardRightButton = (Button) findViewById(R.id.forwardRightButton);
+        mForwardRightButton = (ImageButton) findViewById(R.id.forwardRightButton);
         mForwardRightButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
@@ -150,7 +151,7 @@ public class ControlsActivity extends Activity
             }
         });
         
-        mStopButton = (Button) findViewById(R.id.stopButton);
+        mStopButton = (ImageButton) findViewById(R.id.stopButton);
         mStopButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget

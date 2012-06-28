@@ -13,12 +13,16 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    >
+    android:orientation="vertical" >
+
+    <SurfaceView
+        android:id="@+id/surfaceView_id"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1" />
 
     <Button
         android:id="@+id/wifiButton_id"
@@ -26,12 +30,12 @@
         android:layout_height="wrap_content"
         android:text="Connect to Controller (Start Wifi)" />
 
-     <TextView
-         android:id="@+id/wifiStatus_id"
-         android:layout_width="wrap_content"
-         android:layout_height="wrap_content"
-         android:text="Wifi Not Connected"
-         android:textAppearance="?android:attr/textAppearanceLarge" />
+    <TextView
+        android:id="@+id/wifiStatus_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Wifi Not Connected"
+        android:textAppearance="?android:attr/textAppearanceLarge" />
 
     <Button
         android:id="@+id/bluetoothButton_id"
