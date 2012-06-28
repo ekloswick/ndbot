@@ -26,18 +26,17 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.text.DecimalFormat;
 import java.util.Collections;
+import java.util.List;
 
+//import nd.reu.ndbot.BluetoothActivity.AsyncThread;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
+import android.hardware.Camera;
+import android.hardware.Camera.Size;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -47,6 +46,9 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.SurfaceHolder;
+import android.view.SurfaceHolder.Callback;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.View.OnClickListener;
@@ -68,7 +70,11 @@ public class BluetoothActivity extends Activity {
     private TextView wifiStatus;
     private TextView bluetoothStatus;
     private TextView receivedMessage;
-    private TextView botAccel;
+    private SurfaceView viewToSend;
+	private SurfaceHolder surfaceHolder;
+	private boolean previewRunning;
+	private String frameToSend = "";
+    
     // Debugging
     private static final String TAG = "NDBotBluetooth";
     private static final boolean D = true;
@@ -94,13 +100,6 @@ public class BluetoothActivity extends Activity {
     private Button mWifiButton;
     private Button mBluetoothButton;
     private Button mResetButton;
-    
-    //Sensor
-    private SensorManager mSensorManager;
-    private float mSensorX;
-    private float mSensorY;
-    private boolean send;
-    String toAndroid;
 
     // Name of the connected device
     private String mConnectedDeviceName = null;
@@ -132,7 +131,6 @@ public class BluetoothActivity extends Activity {
         wifiStatus = (TextView) findViewById(R.id.wifiStatus_id);
         bluetoothStatus = (TextView) findViewById(R.id.bluetoothStatus_id);
         receivedMessage = (TextView) findViewById(R.id.receivedMessage_id);
-        botAccel = (TextView) findViewById(R.id.bot_accel_id);
 
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -143,11 +141,6 @@ public class BluetoothActivity extends Activity {
             finish();
             return;
         }
-        
-        //SensorManager
-      mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        
-        
     }
 
     @Override
@@ -155,6 +148,8 @@ public class BluetoothActivity extends Activity {
         super.onStart();
         if(D) Log.e(TAG, "++ ON START ++");
 
+        //new AsyncCameraThread().execute();
+        
         mWifiButton = (Button) findViewById(R.id.wifiButton_id);
         mWifiButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
@@ -212,8 +207,6 @@ public class BluetoothActivity extends Activity {
               mChatService.start();
             }
         }
-        Sensor mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-		mSensorManager.registerListener(listener, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     private void setupBluetoothConnection() {
@@ -230,7 +223,6 @@ public class BluetoothActivity extends Activity {
     public synchronized void onPause() {
         super.onPause();
         if(D) Log.e(TAG, "- ON PAUSE -");
-        mSensorManager.unregisterListener(listener);
     }
 
     @Override
@@ -335,8 +327,7 @@ public class BluetoothActivity extends Activity {
             // When DeviceListActivity returns with a device to connect
             if (resultCode == Activity.RESULT_OK) {
                 // Get the device MAC address
-                String address = data.getExtras()
-                                     .getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
+                String address = data.getExtras().getString(DeviceListActivity.EXTRA_DEVICE_ADDRESS);
                 // Get the BLuetoothDevice object
                 BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
                 // Attempt to connect to the device
@@ -385,7 +376,6 @@ public class BluetoothActivity extends Activity {
         startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE);
     }
 
-    
     class AsyncThread extends AsyncTask<Void, Void, Void> {
     	
     	String bacon = "0,0";
@@ -400,8 +390,6 @@ public class BluetoothActivity extends Activity {
                 	publishProgress();
                 	
                     Socket client = ss.accept();
-                    //client.getChannel().configureBlocking(false);
-                    //ss.getChannel().configureBlocking(false);
                     BufferedReader input = new BufferedReader(new InputStreamReader(client.getInputStream()));
                     PrintWriter output = new PrintWriter(client.getOutputStream(), true);
                 	publishProgress();
@@ -410,14 +398,13 @@ public class BluetoothActivity extends Activity {
                     	state = 1;
                     	publishProgress();
                         bacon = input.readLine();
-                        if(send)
-                        {
-                        	output.println(toAndroid);
-                        	//output.flush();
-                        	send = false;
-                        }
-                    	publishProgress();
+                        output.println(frameToSend);
+                        frameToSend = "";
                     }
+                    
+                    input.close();
+                    output.close();
+                    ss.close();
                 } else {
                 	state = 3;
                 	publishProgress();
@@ -460,7 +447,6 @@ public class BluetoothActivity extends Activity {
 		}
     }
     
-    
     private void interpretAccelerometer(String xy){
     	
     	String[] strArr = xy.split(",");
@@ -477,13 +463,13 @@ public class BluetoothActivity extends Activity {
     		xVar= (float) ((x-3)/7.0*255);
     		ix = Math.round(xVar);
     	}
-    		
     	else if(x<-3 && x>-10)
     	{
     		xVar = (float) ((-x-3)/7.0*255);
     		ix = Math.round(xVar);
     		Math.abs(xVar);
     	}
+    	
     	if(y>3 && y<10)
     	{
     		yVar= (float) ((y-3)/7.0*255);
@@ -495,6 +481,7 @@ public class BluetoothActivity extends Activity {
         	iy = Math.round(yVar);
     		Math.abs(yVar);
     	}
+    	
     	if(xVar> 255)
     		xVar = 255;
     	if(yVar > 255)
@@ -557,29 +544,6 @@ public class BluetoothActivity extends Activity {
     	Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
     
-    
-	private SensorEventListener listener = new SensorEventListener() {
-		
-		@Override
-		public void onAccuracyChanged(Sensor sensor, int accuracy) {
-			// not used
-			
-		}
-
-		@Override
-		public void onSensorChanged(SensorEvent event) {
-			if(event.sensor.getType() != Sensor.TYPE_ACCELEROMETER)//linear_acceleration if new phones
-				return;
-			mSensorX = event.values[0];
-			mSensorY = event.values[1];
-			DecimalFormat df = new DecimalFormat("#.##");
-			String mSensorXString = df.format(mSensorX);
-			String mSensorYString = df.format(mSensorY);
-			toAndroid = mSensorXString + "," + mSensorYString;
-			send = true;
-			botAccel.setText(toAndroid);
-		}
-	};
     public void restartActivity() {
     	try
 		{
@@ -593,5 +557,119 @@ public class BluetoothActivity extends Activity {
 		finish();
 		startActivity(intent);
     }
+
+	
+    
+    /*
+    
+    class AsyncCameraThread extends AsyncTask<Void, Void, Void> implements Callback{
+
+    	int state = 0;
+    	private Camera camera;
+    	
+    	@Override
+		protected Void doInBackground(Void... params) {
+			try {
+				if (state == 0)
+					publishProgress();
+				
+            } catch (Exception e) {
+            	publishProgress();
+                e.printStackTrace();
+            }
+			return null;
+		}
+    	
+    	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    		if (previewRunning){
+    			camera.stopPreview();
+    		}
+    		Camera.Parameters p = camera.getParameters();
+    		List<Camera.Size> sizesList = p.getSupportedPreviewSizes();
+    		Camera.Size previewSize = sizesList.get(0);
+    		
+    		// for logging the allowable screen resolutions, highest to lowest
+    		for (int i = 0; i < sizesList.size(); i++){
+    	        previewSize = (Size) sizesList.get(i);
+    	        Log.i("PictureSize", "Supported Size. Width: " + previewSize.width + " Height: " + previewSize.height); 
+    	    }
+    		
+    		p.setPreviewSize(previewSize.width, previewSize.height);
+    		//p.setPreviewFormat(PixelFormat.RGB_565); // causes runtime error
+    		camera.setParameters(p);
+
+    		try {
+    			camera.setPreviewDisplay(holder);
+    			camera.setPreviewCallback( mPreviewCallback );
+    			camera.startPreview();
+    			previewRunning = true;
+    		}
+    		catch (IOException e) {
+    			Log.e(TAG,e.getMessage());
+    			e.printStackTrace();
+    		}
+    	}
+        
+        public void surfaceCreated(SurfaceHolder holder) {
+    		camera = Camera.open();
+    		
+    		if (camera != null){
+    			Camera.Parameters params = camera.getParameters();
+    			camera.setParameters(params);
+    			camera.setDisplayOrientation(90);
+    		}
+    		else {
+    			Toast.makeText(getApplicationContext(), "Camera not available!", Toast.LENGTH_LONG).show();
+    			finish();
+    		}
+    	}
+        
+        public void surfaceDestroyed(SurfaceHolder holder) {
+        	if (camera != null) {
+        		camera.stopPreview();
+        		previewRunning = false;
+        		camera.release();
+        	}
+    	}
+        
+        Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback()
+    	{
+            @Override
+            public void onPreviewFrame(byte[] data, Camera camera) {
+            	for (int i = 0; i < data.length - 1; i++){
+            		frameToSend = frameToSend + data[i];
+            	}
+            	
+            	//Toast.makeText(VideoStreamActivity.this, "Toast", Toast.LENGTH_SHORT).show();
+            	Log.d(TAG, "onPreviewFrame! data is " + (data == null ? "null!" : "ok!"));
+            }
+        };
+		
+		
+		@Override
+		protected void onProgressUpdate(Void... values) {
+			switch (state) {
+				case 0:
+			        // sets up the camera for output
+			        viewToSend = (SurfaceView) findViewById(R.id.surfaceView_id);
+			        surfaceHolder = viewToSend.getHolder();
+			        surfaceHolder.addCallback(this);
+			        surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+			        state = 1;
+                    break;
+				case 1:
+					break;
+				case 2:
+					break;
+				case 3:
+                    break;
+				case 4:
+	                break;
+				default:
+					break;
+			}
+		}
+    }
+    */
     
 }

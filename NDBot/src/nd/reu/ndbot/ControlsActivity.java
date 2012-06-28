@@ -38,6 +38,7 @@ public class ControlsActivity extends Activity
     private ArrayList <Boolean> sendData = new ArrayList<Boolean>();
    // private ArrayList <Boolean> connections = new ArrayList<Boolean>();
     private ArrayList <AsyncTask<Void, Void, Void> > connections = new ArrayList<AsyncTask<Void, Void, Void> >();
+    private String frameToGet = "";
     
 	// Buttons and Fields
 	private EditText mIPAddress;
@@ -54,7 +55,6 @@ public class ControlsActivity extends Activity
     //text fields to show speed values of accelerometer
     private TextView sensorX;
     private TextView sensorY;
-    private TextView botSensor;
     
     //Sensor
     private SensorManager mSensorManager;
@@ -82,8 +82,6 @@ public class ControlsActivity extends Activity
 		//Accelerometer
 		sensorX = (TextView) findViewById(R.id.sensorX_id);
 		sensorY = (TextView) findViewById(R.id.sensorY_id);
-		botSensor = (TextView) findViewById(R.id.bot_accel_id);
-		
 		
 		mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 		Sensor mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -189,23 +187,31 @@ public class ControlsActivity extends Activity
 		public void onSensorChanged(SensorEvent event) {
 			if(event.sensor.getType() != Sensor.TYPE_ACCELEROMETER)
 				return;
+			
 			count++;
+			
 			/*if(count <6)
 			{
 				count++;
 				return;
 			}
 			*/	
+			
 			mSensorX = event.values[0];
 			mSensorY = event.values[1];
+			
 			DecimalFormat df = new DecimalFormat("#.##");
 			String mSensorXString = df.format(mSensorX);
 			String mSensorYString = df.format(mSensorY);
+			
 			sensorX.setText(mSensorXString);
 			sensorY.setText(mSensorYString);
 			command = mSensorXString+","+ mSensorYString;
-        	for(int i =0; i < connections.size(); i++)
+			
+        	for(int i =0; i < connections.size(); i++) {
         		((AsyncThread) connections.get(i)).setSend(true);
+        	}
+        	
 			count =0;
 		}
 	};
@@ -221,8 +227,6 @@ public class ControlsActivity extends Activity
 	
 	class AsyncThread extends AsyncTask<Void, Void, Void> {
     	private boolean send;
-    	private boolean accelEnable = true;
-    	String accelRead= "Bot Reading";
     	//String bacon = "Happy happy joy joy";
     	int state = 0;
 		@Override
@@ -246,10 +250,7 @@ public class ControlsActivity extends Activity
 	                        send = false;
 	                        output.println(command);
 	                        output.flush();
-                        }
-                        if(accelEnable)
-                        {
-                        	accelRead = input.readLine();
+	                        frameToGet = input.readLine();
                         }
                         
                         if (connections.indexOf(this) == -1) {
@@ -282,7 +283,6 @@ public class ControlsActivity extends Activity
 					break;
 				case 1:
 					wifiStatus.setText("Connected");
-					botSensor.setText(accelRead);
 					break;
 				case 2:
 					wifiStatus.setText("Disconnected");
@@ -298,9 +298,6 @@ public class ControlsActivity extends Activity
 		}
 		public void setSend(boolean b){
 			send=b;
-		}
-		public void setAccelEnable(boolean b){
-			accelEnable=b;
 		}
     }
 	
