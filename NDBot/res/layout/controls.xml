@@ -74,18 +74,28 @@
         android:id="@+id/reverseButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_above="@+id/sensorX_id"
-        android:layout_alignRight="@+id/bot_accel_id"
-        android:layout_marginBottom="86dp"
+        android:layout_above="@+id/sensorY_id"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="87dp"
         android:src="@drawable/back_arrow"
         android:text="Reverse" />
+
+    <ImageButton
+        android:id="@+id/forwardRightButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/bot_accel_id"
+        android:layout_marginTop="38dp"
+        android:layout_toRightOf="@+id/reverseButton"
+        android:src="@drawable/up_right_arrow"
+        android:text="Foward Right" />
 
     <ImageButton
         android:id="@+id/stopButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_above="@+id/reverseButton"
-        android:layout_alignLeft="@+id/reverseButton"
+        android:layout_toLeftOf="@+id/forwardRightButton"
         android:src="@drawable/stop_arrow"
         android:text="Stop" />
 
@@ -102,36 +112,27 @@
         android:id="@+id/turnRightButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_above="@+id/reverseButton"
-        android:layout_toRightOf="@+id/reverseButton"
+        android:layout_alignLeft="@+id/forwardRightButton"
+        android:layout_below="@+id/forwardRightButton"
         android:src="@drawable/right_arrow"
         android:text="Turn Right" />
-
-    <ImageButton
-        android:id="@+id/forwardButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_above="@+id/stopButton"
-        android:layout_toLeftOf="@+id/turnRightButton"
-        android:src="@drawable/up_arrow"
-        android:text="Forward" />
 
     <ImageButton
         android:id="@+id/forwardLeftButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_above="@+id/stopButton"
+        android:layout_alignTop="@+id/forwardRightButton"
         android:layout_toLeftOf="@+id/stopButton"
         android:src="@drawable/up_left_arrow"
         android:text="Forward Left" />
 
     <ImageButton
-        android:id="@+id/forwardRightButton"
+        android:id="@+id/forwardButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_alignLeft="@+id/turnRightButton"
-        android:layout_alignTop="@+id/forwardButton"
-        android:src="@drawable/up_right_arrow"
-        android:text="Foward Right" />
+        android:layout_above="@+id/turnRightButton"
+        android:layout_toLeftOf="@+id/forwardRightButton"
+        android:src="@drawable/up_arrow"
+        android:text="Forward" />
 
 </RelativeLayout>

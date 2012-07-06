@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/RelativeLayout1"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" >
+
+    <TextView
+        android:id="@+id/wifiConnected_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_below="@+id/ipAddress_id"
+        android:text="Not Connected"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <ImageButton
+        android:id="@+id/reverseButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:src="@drawable/back_arrow"
+        android:text="Reverse" />
+
+    <ImageButton
+        android:id="@+id/stopButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/reverseButton"
+        android:layout_alignLeft="@+id/reverseButton"
+        android:src="@drawable/stop_arrow"
+        android:text="Stop" />
+
+    <ImageButton
+        android:id="@+id/turnLeftButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/reverseButton"
+        android:layout_toLeftOf="@+id/reverseButton"
+        android:src="@drawable/left_arrow"
+        android:text="Turn Left" />
+
+    <TextView
+        android:id="@+id/bot_accel_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_below="@+id/wifiConnected_id"
+        android:text="Bot Accelerometer Readings" />
+
+    <ImageButton
+        android:id="@+id/forwardLeftButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/turnLeftButton"
+        android:layout_alignLeft="@+id/turnLeftButton"
+        android:src="@drawable/up_left_arrow"
+        android:text="Forward Left" />
+
+    <ImageButton
+        android:id="@+id/forwardButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@+id/forwardLeftButton"
+        android:layout_toRightOf="@+id/forwardLeftButton"
+        android:src="@drawable/up_arrow"
+        android:text="Forward" />
+
+    <ImageButton
+        android:id="@+id/forwardRightButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@+id/forwardButton"
+        android:layout_toRightOf="@+id/forwardButton"
+        android:src="@drawable/up_right_arrow"
+        android:text="Foward Right" />
+
+    <ImageButton
+        android:id="@+id/turnRightButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/forwardButton"
+        android:layout_toRightOf="@+id/stopButton"
+        android:src="@drawable/right_arrow"
+        android:text="Turn Right" />
+
+</RelativeLayout>

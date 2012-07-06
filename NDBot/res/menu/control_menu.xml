@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+    <item 
+        android:id="@+id/buttons"
+    	android:title="buttons"
+    	android:icon="@drawable/ic_menu_mark">   
+    </item>
+    <item 
+        android:id="@+id/accel" 
+        android:title="accelerometer"
+        android:icon="@drawable/ic_menu_mark">
+    </item>
+    <item
+        android:id="@+id/connect"
+        android:title="connect"
+        android:icon="@drawable/ic_menu_mark">
+    </item>
+    <item
+        android:id="@+id/bots"
+        android:title="Bot list"
+        android:icon="@drawable/ic_menu_mark">
+    </item>
+
+</menu>
