@@ -448,7 +448,6 @@ public class BluetoothActivity extends Activity {
     }
     
     private void interpretAccelerometer(String xy){
-    	
     	String[] strArr = xy.split(",");
     	//sendMessage(strArr[0]);
     	//float x = Float.valueOf(strArr[0].trim()).floatValue();
