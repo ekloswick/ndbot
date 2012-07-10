@@ -53,5 +53,9 @@
                   android:label="@string/select_device"
                   android:theme="@android:style/Theme.Dialog"
                   android:configChanges="orientation|keyboardHidden" />
+        <activity android:name=".PlanRouteActivity">
+            
+        </activity>
+        
     </application>
 </manifest>
