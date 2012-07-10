@@ -9,6 +9,8 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import android.R.layout;
 import android.app.Activity;
@@ -137,15 +139,6 @@ public class ControlsActivity extends Activity
 		}
 	};
 	
-	
-	
-	public void sendMessage(){
-		
-		
-		
-		
-	}
-	
 	class AsyncThread extends AsyncTask<Void, Void, Void> {
     	private boolean send;
     	private boolean activeBot;
@@ -267,6 +260,12 @@ public class ControlsActivity extends Activity
 	        case R.id.bots:
 	        	showDialog(1);
 	        	return true;
+	        case R.id.makeRoute:
+	        	Intent intent = new Intent(this, PlanRouteActivity.class);
+	        	startActivityForResult(intent, 1);
+	        	return true;
+	        case R.id.routes:
+	        	
 	        }
 	        return false;
 	    }
@@ -552,5 +551,109 @@ public class ControlsActivity extends Activity
 		}
 		return null;
     }
+	
+	@Override
+	public void onActivityResult(int requestCode,int resultCode,Intent data){
+		if(requestCode == 1 && resultCode == Activity.RESULT_OK)
+		{
+			parseRoute(data.getStringExtra("nd.reu.ndbot.PlanRouteActivity"));
+		}
+		
+	}
+	
+	private void parseRoute(String routeData){
+		routeData = routeData.substring(4);
+		String[] route =routeData.split("\n");
+		String[] time = new String[route.length];
+		float [] routeTime = new float[route.length];
+		int [] routeTimeInt = new int[route.length];
+		for(int i = 0; i<route.length; i++)
+		{
+			int index = route[i].indexOf('~', 8);
+			time[i] = route[i].substring(index+1);
+			route[i] = route[i].substring(0,index);
+			//Log.d("ClientActivity", route[i]);
+			//Log.d("ClientActivity", time[i]);
+			routeTime[i] = Float.parseFloat(time[i]);
+			routeTime[i] *=1000;
+			routeTimeInt[i] = (int) routeTime[i];
+			//Log.d("ClientActivity", time[i]);
+		}
+		//sendRoute(route, routeTimeInt);
+		//routeThread routeToTravel = (routeThread) new routeThread().execute(new GatherData(route, routeTimeInt));
+		new routeThread().execute(new GatherData(route, routeTimeInt));
+	}
+	
+	/*public void sendRoute(String[] route, int[] time){
+		
+	}
+	*/
+	class routeThread extends AsyncTask<GatherData, String,Void> {
+
+		@Override
+		protected Void doInBackground(GatherData... gatherData) {
+			
+			
+			for(int i = 0; i<gatherData[0].route.length; i++)
+			{
+				publishProgress(gatherData[0].route[i]);
+				try {
+					Log.d("thread sleep time", Integer.toString(gatherData[0].time[i]));
+					Thread.sleep(gatherData[0].time[i]);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			publishProgress("0.00,0.00");
+			
+			return null;
+		}
+		@Override
+		protected void onProgressUpdate(String... route){
+			Log.d("OnProgress", route[0]);
+			command = route[0];
+            if(currentBot != null)
+            	currentBot.setSend(true);
+		}
+	
+	
+	
+	
+	
+	}
+	
+	class GatherData{
+		String[] route;
+		int[] time;
+		
+		GatherData(String[] r, int[] t){
+			route = r.clone();
+			time = t.clone();
+		}
+	}
+	
+	/*class RunnableThread implements Runnable {
+
+		Thread runner;
+		String[] route;
+		int[] time;
+		public RunnableThread(String[] r, int[] t, String threadName) {
+			route = r.clone();
+			time = t.clone();
+			runner = new Thread(this, threadName); // (1) Create a new thread.
+			System.out.println(runner.getName());
+			runner.start(); // (2) Start the thread.
+		}
+		public void run() {
+			for(int i =0; i < route.length; i++)
+			{
+				
+			}
+		}
+	}
+	*/
+
+	
 }
 
