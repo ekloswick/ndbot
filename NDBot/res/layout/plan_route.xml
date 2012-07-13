@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/RelativeLayout1"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" >
+
+    <ImageButton
+        android:id="@+id/stopButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:src="@drawable/stop_arrow"
+        android:text="Stop" />
+
+    <ImageButton
+        android:id="@+id/reverseButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/stopButton"
+        android:layout_below="@+id/stopButton"
+        android:src="@drawable/back_arrow"
+        android:text="Reverse" />
+
+    <ImageButton
+        android:id="@+id/turnLeftButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@+id/stopButton"
+        android:layout_toLeftOf="@+id/stopButton"
+        android:src="@drawable/left_arrow"
+        android:text="Turn Left" />
+
+    <ImageButton
+        android:id="@+id/forwardButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/stopButton"
+        android:layout_alignLeft="@+id/stopButton"
+        android:src="@drawable/up_arrow"
+        android:text="Forward" />
+
+    <ImageButton
+        android:id="@+id/forwardLeftButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/turnLeftButton"
+        android:layout_alignLeft="@+id/turnLeftButton"
+        android:src="@drawable/up_left_arrow"
+        android:text="Forward Left" />
+
+    <ImageButton
+        android:id="@+id/turnRightButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/forwardButton"
+        android:layout_toRightOf="@+id/stopButton"
+        android:src="@drawable/right_arrow"
+        android:text="Turn Right" />
+
+    <ImageButton
+        android:id="@+id/forwardRightButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/stopButton"
+        android:layout_toRightOf="@+id/stopButton"
+        android:src="@drawable/up_right_arrow"
+        android:text="Foward Right" />
+
+    <EditText
+        android:id="@+id/length"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/forwardButton"
+        android:layout_alignLeft="@+id/forwardLeftButton"
+        android:layout_marginBottom="32dp"
+        android:ems="10"
+        android:hint="Enter length" >
+    </EditText>
+
+    <TextView
+        android:id="@+id/list"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/reverseButton"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="26dp"
+        android:text="Route will show up here" />
+
+    <EditText
+        android:id="@+id/nameText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:ems="10"
+        android:hint="Enter name of Route"
+        android:inputType="textNoSuggestions"
+        android:textAppearance="?android:attr/textAppearanceLarge" >
+
+        <requestFocus />
+    </EditText>
+
+    <Button
+        android:id="@+id/delete"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:text="Delete Last" />
+
+    <Button
+        android:id="@+id/doneButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:text="Save" />
+
+</RelativeLayout>
+    
