@@ -9,6 +9,8 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -18,6 +20,7 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.hardware.Sensor;
@@ -27,6 +30,7 @@ import android.hardware.SensorManager;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -35,6 +39,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -61,6 +66,7 @@ public class ControlsActivity extends Activity
     
     private boolean accel = false;
     private boolean button = true;
+    private boolean route = false;
 	// Buttons and Fields
 	private EditText mIPAddress;
     private TextView wifiStatus;
@@ -262,10 +268,11 @@ public class ControlsActivity extends Activity
 	        	return true;
 	        case R.id.makeRoute:
 	        	Intent intent = new Intent(this, PlanRouteActivity.class);
-	        	startActivityForResult(intent, 1);
+	        	startActivity(intent);
 	        	return true;
 	        case R.id.routes:
-	        	
+	        	Intent intent1 = new Intent(this, RouteActivity.class);
+	        	startActivityForResult(intent1, 1);
 	        }
 	        return false;
 	    }
@@ -275,8 +282,9 @@ public class ControlsActivity extends Activity
         mForwardButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
+            	if(route)
+            		route = false;
                 command = "-8.00,0.00";
-                toast(command);
                 	/*for(int i =0; i < connections.size(); i++)
                 		((AsyncThread) connections.get(i)).setSend(true);*/
                 if(currentBot != null)
@@ -287,6 +295,8 @@ public class ControlsActivity extends Activity
         mReverseButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
+            	if(route)
+            		route = false;
                 command = "8.00,0.00";
                 	/*for(int i =0; i < connections.size(); i++)
                 		((AsyncThread) connections.get(i)).setSend(true);*/
@@ -299,6 +309,8 @@ public class ControlsActivity extends Activity
         mTurnLeftButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
+            	if(route)
+            		route = false;
                 command = "0.00,-8.00";
                 	/*for(int i =0; i < connections.size(); i++)
                 		((AsyncThread) connections.get(i)).setSend(true);*/
@@ -311,6 +323,8 @@ public class ControlsActivity extends Activity
         mTurnRightButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
+            	if(route)
+            		route = false;
                 command = "0.00,8.00";
                 	/*for(int i =0; i < connections.size(); i++)
                 		((AsyncThread) connections.get(i)).setSend(true);*/
@@ -323,6 +337,8 @@ public class ControlsActivity extends Activity
         mForwardLeftButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
+            	if(route)
+            		route = false;
                 command = "-8.00,-8.00";
                 	/*for(int i =0; i < connections.size(); i++)
                 		((AsyncThread) connections.get(i)).setSend(true);*/
@@ -335,6 +351,8 @@ public class ControlsActivity extends Activity
         mForwardRightButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
+            	if(route)
+            		route = false;
                 command = "-8.00,8.00";
                 	/*for(int i =0; i < connections.size(); i++)
                 		((AsyncThread) connections.get(i)).setSend(true);*/
@@ -348,6 +366,8 @@ public class ControlsActivity extends Activity
         mStopButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
                 // Send a message using content of the edit text widget
+            	if(route)
+            		route = false;
                 command = "0.00,0.00";
                 	/*for(int i =0; i < connections.size(); i++)
                 		((AsyncThread) connections.get(i)).setSend(true);*/
@@ -522,20 +542,20 @@ public class ControlsActivity extends Activity
 	         {
 	        	 arrayAdapter.add((Integer.toString(i))+" "+((AsyncThread) connections.get(i)).getServerAddr());
 	         }
-	         ListView list = (ListView) view.findViewById(R.id.botListView);
+	         final ListView list = (ListView) view.findViewById(R.id.botListView);
 	         
 	         list.setAdapter(arrayAdapter);
 	         AlertDialog.Builder builder = new AlertDialog.Builder(ControlsActivity.this);
-
+	         
 	             builder.setIcon(R.drawable.alert_dialog_icon);
 	             builder.setTitle("Connect to a robot");
 	             builder.setView(view).setNegativeButton("Back", new DialogInterface.OnClickListener() {
 	                 public void onClick(DialogInterface dialog, int whichButton) {
-
 	                     /* User clicked cancel cancels automatically */
 	                 }
 	             });
-	 	      final  AlertDialog alert = builder.create();
+	             
+	            final  AlertDialog alert = builder.create();
 	         list.setOnItemClickListener(new OnItemClickListener() {
 	        	 @Override
 	        	 public void onItemClick(AdapterView<?> arg0, View arg1, int arg2, long arg3) {
@@ -547,10 +567,73 @@ public class ControlsActivity extends Activity
 	        	  alert.dismiss();
 	       	 } });
 	        return alert;
+		/*case 2:
+			LayoutInflater factory3 = LayoutInflater.from(this);
+	         final View view3 = factory3.inflate(R.layout.alert_dialog_route_list, null);
+			 SharedPreferences sharedPreferences = getSharedPreferences("myPrefs",MODE_PRIVATE);
+			 final  Map<String, ?> map = sharedPreferences.getAll();
+			    //toast(Integer.toString(map.size()));
+			   // Log.d("map size", Integer.toString(map.size()));
+			  //  Log.d("one key", (String) map.get("y"));
+			   Set<String> set =  map.keySet();
+			   String[] keys = new String[set.size()];
+			   keys = (String[]) set.toArray(keys);	
+			   ArrayAdapter<String> routeAdapter = new ArrayAdapter<String>(this, R.layout.alert_dialog_route_text,keys); 
+			   final ListView routeList = (ListView) view3.findViewById(R.id.routeListView);
+			   routeList.setAdapter(routeAdapter);
+			   AlertDialog.Builder builder2 = new AlertDialog.Builder(ControlsActivity.this);
 
+	             builder2.setIcon(R.drawable.alert_dialog_icon);
+	             builder2.setTitle("Choose a Route");
+	             builder2.setView(view3).setNegativeButton("Back", new DialogInterface.OnClickListener() {
+	                 public void onClick(DialogInterface dialog, int whichButton) {
+	                     /* User clicked cancel cancels automatically 
+	                 }
+	             });
+	 	     builder2.setPositiveButton("Edit Route", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						
+						routeList.setOnItemClickListener(new OnItemClickListener(){
+							@Override
+							public void onItemClick(AdapterView<?> arg0, View arg1, int arg2, long arg3){ //send to Route activity
+								TextView tv = (TextView) arg1;
+								Intent intent = new Intent(arg0.getContext(), PlanRouteActivity.class);
+								intent.putExtra("name", tv.getText().toString());
+								startActivity(intent);
+							}
+						});
+					}
+				});
+	         routeList.setOnItemSelectedListener(new OnItemSelectedListener() {
+
+				@Override
+				public void onItemSelected(AdapterView<?> arg0, View arg1,int arg2, long arg3) {
+					 TextView tv = (TextView) arg1;
+	        		 parseRoute((String) map.get(tv.getText().toString()));
+					
+				}
+
+				@Override
+				public void onNothingSelected(AdapterView<?> arg0) {
+					// TODO Auto-generated method stub
+					
+				} });
+	 	      final  AlertDialog alert2 = builder2.create();
+	        return alert2;
+			    
+			
+			
+			
+		}*/
 		}
 		return null;
     }
+	   private void LoadPreferences(){
+
+		  //  String strSavedMem1 = sharedPreferences.getString("MEM1", "");
+		    //String strSavedMem2 = sharedPreferences.getString("MEM2", "");
+		   }
 	
 	@Override
 	public void onActivityResult(int requestCode,int resultCode,Intent data){
@@ -562,6 +645,7 @@ public class ControlsActivity extends Activity
 	}
 	
 	private void parseRoute(String routeData){
+		route = true;
 		routeData = routeData.substring(4);
 		String[] route =routeData.split("\n");
 		String[] time = new String[route.length];
@@ -596,14 +680,20 @@ public class ControlsActivity extends Activity
 			
 			for(int i = 0; i<gatherData[0].route.length; i++)
 			{
-				publishProgress(gatherData[0].route[i]);
-				try {
-					Log.d("thread sleep time", Integer.toString(gatherData[0].time[i]));
-					Thread.sleep(gatherData[0].time[i]);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+				if(route)
+				{
+					publishProgress(gatherData[0].route[i]);
+					try {
+						Log.d("thread sleep time", Integer.toString(gatherData[0].time[i]));
+						Thread.sleep(gatherData[0].time[i]);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 				}
+				else
+					return null;
+				
 			}
 			publishProgress("0.00,0.00");
 			
@@ -615,15 +705,10 @@ public class ControlsActivity extends Activity
 			command = route[0];
             if(currentBot != null)
             	currentBot.setSend(true);
-		}
-	
-	
-	
-	
-	
+		}	
 	}
 	
-	class GatherData{
+	class GatherData{//to make sending data to routeThread easier
 		String[] route;
 		int[] time;
 		
@@ -632,27 +717,7 @@ public class ControlsActivity extends Activity
 			time = t.clone();
 		}
 	}
-	
-	/*class RunnableThread implements Runnable {
 
-		Thread runner;
-		String[] route;
-		int[] time;
-		public RunnableThread(String[] r, int[] t, String threadName) {
-			route = r.clone();
-			time = t.clone();
-			runner = new Thread(this, threadName); // (1) Create a new thread.
-			System.out.println(runner.getName());
-			runner.start(); // (2) Start the thread.
-		}
-		public void run() {
-			for(int i =0; i < route.length; i++)
-			{
-				
-			}
-		}
-	}
-	*/
 
 	
 }

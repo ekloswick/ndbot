@@ -36,6 +36,10 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.hardware.Camera;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.hardware.Camera.Size;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
@@ -70,6 +74,7 @@ public class BluetoothActivity extends Activity {
     private TextView wifiStatus;
     private TextView bluetoothStatus;
     private TextView receivedMessage;
+    private TextView compassReading;
     private SurfaceView viewToSend;
 	private SurfaceHolder surfaceHolder;
 	private boolean previewRunning;
@@ -112,6 +117,20 @@ public class BluetoothActivity extends Activity {
     // Wifi Manager
     private WifiManager wifiManager;
     
+    //Sensors
+    SensorManager mSensorManager;
+    private Sensor sensorAccelerometer;
+    private Sensor sensorMagneticField;
+     
+    private float[] valuesAccelerometer;
+    private float[] valuesMagneticField;
+     
+    private float[] matrixR;
+    private float[] matrixI;
+    private float[] matrixValues;
+    private static float smoothed[] = new float[3];
+    TextView readingAzimuth, readingPitch, readingRoll;
+    
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -131,7 +150,7 @@ public class BluetoothActivity extends Activity {
         wifiStatus = (TextView) findViewById(R.id.wifiStatus_id);
         bluetoothStatus = (TextView) findViewById(R.id.bluetoothStatus_id);
         receivedMessage = (TextView) findViewById(R.id.receivedMessage_id);
-
+        
         // Get local Bluetooth adapter
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         
@@ -141,6 +160,28 @@ public class BluetoothActivity extends Activity {
             finish();
             return;
         }
+        readingAzimuth = (TextView)findViewById(R.id.azimuth);
+       // readingPitch = (TextView)findViewById(R.id.pitch);
+       // readingRoll = (TextView)findViewById(R.id.roll);
+      //  compassReading = (TextView) findViewById(R.id.compass);
+      //  mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+		//compass = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		// mSensorManager.registerListener(listener,compass,SensorManager.SENSOR_DELAY_NORMAL);
+		 
+		 
+	  mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+	  sensorAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+	  sensorMagneticField = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+	    
+	  valuesAccelerometer = new float[3];
+	  valuesMagneticField = new float[3];
+
+	  matrixR = new float[9];
+	  matrixI = new float[9];
+	  matrixValues = new float[3];
+        
+       // Intent intent=new Intent("CompassService");
+       // startService(intent);
     }
 
     @Override
@@ -207,6 +248,8 @@ public class BluetoothActivity extends Activity {
               mChatService.start();
             }
         }
+      //  mSensorManager.registerListener(listener,sensorAccelerometer,SensorManager.SENSOR_DELAY_NORMAL);
+       // mSensorManager.registerListener(listener,sensorMagneticField,SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     private void setupBluetoothConnection() {
@@ -223,6 +266,7 @@ public class BluetoothActivity extends Activity {
     public synchronized void onPause() {
         super.onPause();
         if(D) Log.e(TAG, "- ON PAUSE -");
+     //   mSensorManager.unregisterListener(listener);
     }
 
     @Override
@@ -556,6 +600,53 @@ public class BluetoothActivity extends Activity {
 		finish();
 		startActivity(intent);
     }
+    /*
+    private SensorEventListener listener=new SensorEventListener() {
+		
+		@Override
+		public void onAccuracyChanged(Sensor sensor, int accuracy) {
+			// not used
+			
+		}
+
+		@Override
+		public void onSensorChanged(SensorEvent event) {
+		 // TODO Auto-generated method stub
+			if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+	            smoothed = LowPassFilter.filter(event.values, valuesAccelerometer);
+	            valuesAccelerometer[0] = smoothed[0];
+	            valuesAccelerometer[1] = smoothed[1];
+	            valuesAccelerometer[2] = smoothed[2];
+	        } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+	            smoothed = LowPassFilter.filter(event.values, valuesMagneticField);
+	            valuesMagneticField[0] = smoothed[0];
+	            valuesMagneticField[1] = smoothed[1];
+	            valuesMagneticField[2] = smoothed[2];
+	        }
+		  
+		 boolean success = SensorManager.getRotationMatrix(
+		      matrixR,
+		      matrixI,
+		      valuesAccelerometer,
+		      valuesMagneticField);
+		  
+		 if(success){
+		  SensorManager.getOrientation(matrixR, matrixValues);
+		   
+		  double azimuth = Math.toDegrees(matrixValues[0]);
+		  double pitch = Math.toDegrees(matrixValues[1]);
+		  double roll = Math.toDegrees(matrixValues[2]);
+		   if(azimuth < 0)
+			   azimuth += 360;
+		  readingAzimuth.setText("Azimuth: " + String.valueOf(azimuth));
+		//  readingPitch.setText("Pitch: " + String.valueOf(pitch));
+		//  readingRoll.setText("Roll: " + String.valueOf(roll));
+		   
+		 // myCompass.update(matrixValues[0]);
+		 }
+		  
+		}
+	};*/
 
 	
     
@@ -670,5 +761,5 @@ public class BluetoothActivity extends Activity {
 		}
     }
     */
-    
+     
 }
