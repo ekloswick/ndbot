@@ -20,5 +20,17 @@
         android:title="Bot list"
         android:icon="@drawable/ic_menu_mark">
     </item>
+    
+    <item
+      android:id="@+id/makeRoute"  
+      android:title="Make Route"
+      android:icon="@drawable/ic_menu_mark">
+    </item>
+    
+    <item
+        android:id="@+id/routes"
+        android:title="Routes"
+        android:icon="@drawable/ic_menu_mark">
+    </item>
 
 </menu>
