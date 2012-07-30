@@ -3,6 +3,7 @@ package nd.reu.ndbot;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.Flushable;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.InetAddress;
@@ -47,6 +48,7 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckedTextView;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ListView;
@@ -79,6 +81,8 @@ public class ControlsActivity extends Activity
 	// Buttons and Fields
 	private EditText mIPAddress;
     private TextView wifiStatus;
+    private TextView accelText;
+    
 	private ImageButton mForwardButton;
     private ImageButton mReverseButton;
     private ImageButton mTurnLeftButton;
@@ -119,7 +123,7 @@ public class ControlsActivity extends Activity
         }
 		
 		wifiStatus = (TextView) findViewById(R.id.wifiConnected_id);
-		
+		accelText = (TextView) findViewById(R.id.bot_accel_id);
         toast("create wifi button");
     }
 	
@@ -159,9 +163,9 @@ public class ControlsActivity extends Activity
 	class AsyncThread extends AsyncTask<Void, Void, Void> {
     	private boolean send;
     	private boolean activeBot;
+    	BluetoothSocket bluetooth;
     	InetAddress serverAddr;
     	int state = 0;
-    	
 		@Override
 		protected Void doInBackground(Void... params) {			
 			try {
@@ -171,28 +175,34 @@ public class ControlsActivity extends Activity
                 PrintWriter output = new PrintWriter(socket.getOutputStream());
                 BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 state = 0;
-                
+                bluetooth = new BluetoothSocket();
                // connected = socket.isConnected();
                 publishProgress();
-                
+                bluetooth.execute();
                 while (!connections.isEmpty()) {
+                	if(isCancelled())
+                	{
+                		bluetooth.cancel(true);
+                		break;
+                	}
                     try {
                         state = 1;
+                       // Log.d("count", Integer.toString(count));
                         if (send) {
                         	state = 3;
 	                        send = false;
 	                        output.println(command);
+	                       // Log.d("send commands", command);
 	                        output.flush();
-	                        input.readLine();
                         }
-                        
+                       
                         if (connections.indexOf(this) == -1) {
                             state = 2;
                             output.close();
                             input.close();
                             break;
                         }
-
+                        
                         publishProgress();
                     } catch (Exception e) {
                         Log.e("ClientActivity", "S: Error", e);
@@ -207,6 +217,10 @@ public class ControlsActivity extends Activity
             }
 			return null;
 		}
+		
+	
+		
+		
 		
 		@Override
 		protected void onProgressUpdate(Void... values) {            
@@ -227,7 +241,9 @@ public class ControlsActivity extends Activity
 				default:
 					wifiStatus.setText("WTF");
 					break;
+					
 			}
+
 		}
 		public void setSend(boolean b){
 			send=b;
@@ -238,7 +254,48 @@ public class ControlsActivity extends Activity
 		public String getServerAddr(){
 			return serverAddr.toString();
 		}
-    }
+   }
+	
+	class BluetoothSocket extends AsyncTask<Void, Void, Void>{
+		InetAddress serverAddr;
+  	String accelReadings = "hi";
+  	boolean run =true;
+		@Override
+		protected Void doInBackground(Void... params) {
+			try {
+				Log.d("inBluetooth", accelReadings);
+	      serverAddr = InetAddress.getByName(serverIpAddress);
+	      Socket socket = new Socket(serverAddr, 8888);
+	     // PrintWriter output = new PrintWriter(socket.getOutputStream());
+	      BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+	     while(run){
+	    	 if(isCancelled())
+	    		 break;
+	    	// Log.d("accel Reading before", accelReadings);
+	    	 accelReadings = input.readLine();
+	    	 Log.d("accel Reading", accelReadings);
+	    	 publishProgress();
+	    	 Thread.sleep(100);
+	     }
+	     socket.close();
+	     input.close();
+	     
+			}
+			catch (Exception e) {
+	      Log.e("ClientActivity", "S: Error", e);
+	  }
+					
+			return null;
+		}
+		
+		protected void onProgressUpdate(Void... values) {  
+		//	Log.d("onUpdate", accelReadings);
+      if(accelReadings !=null)
+				accelText.setText(accelReadings);
+		}
+		
+		
+	}
 	
 	public void toast(String text) {
     	Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
@@ -497,10 +554,10 @@ public class ControlsActivity extends Activity
 	    super.onConfigurationChanged(newConfig);
 	    if(accel)
 	    	return;
-        if(button)
-        {
-        	enableButtons();
-        }
+      if(button)
+      {
+       	enableButtons();
+      }
 		/*if(getResources().getConfiguration().orientation == 1)
 			setContentView(R.layout.controlsa);
 		else
@@ -515,8 +572,18 @@ public class ControlsActivity extends Activity
 			case 0:
 				LayoutInflater factory = LayoutInflater.from(this);
 				final View textEntryView = factory.inflate(R.layout.alert_dialog_text_entry, null);
-				return new AlertDialog.Builder(ControlsActivity.this)
-				.setIcon(R.drawable.alert_dialog_icon)
+				final SharedPreferences sharedPreferences = getSharedPreferences("previousBots",MODE_PRIVATE);
+				final  Map<String, ?> map = sharedPreferences.getAll();
+				Set<String> set =  map.keySet();
+				String[] keys = new String[set.size()];
+				keys = (String[]) set.toArray(keys);	
+				ArrayAdapter<String> botAdapter = new ArrayAdapter<String>(this, R.layout.previous_bot_text_view,keys); 
+				final ListView botList = (ListView) textEntryView.findViewById(R.id.previousBots);
+				botList.setAdapter(botAdapter);
+				
+				
+				AlertDialog.Builder botBuilder = new AlertDialog.Builder(ControlsActivity.this);
+				botBuilder.setIcon(R.drawable.alert_dialog_icon)
 				.setTitle("Connect to a robot")
 				.setView(textEntryView)
 				.setPositiveButton("Connect", new DialogInterface.OnClickListener() {
@@ -533,6 +600,10 @@ public class ControlsActivity extends Activity
                      		currentBot = blah;
                      		//((AsyncThread) connections.get(0)).setActive(true);
                      	blah.execute();
+                     	SharedPreferences.Editor editor = sharedPreferences.edit();
+                     	editor.putString(serverIpAddress,serverIpAddress);
+                   	 	editor.commit();
+                   	 	Log.d("ip address",sharedPreferences.getString(serverIpAddress, "fail"));
                      	
                      	if (accel && !cameraConnected) {
                      		AsyncGetStreamThread cameraThread = new AsyncGetStreamThread();
@@ -548,28 +619,54 @@ public class ControlsActivity extends Activity
 
                      /* User clicked cancel so do nothing */
                  }
-             })
-             .create();
+             });
+				final AlertDialog alertBot =  botBuilder.create();
+				botList.setOnItemClickListener(new OnItemClickListener(){
+
+					@Override
+					public void onItemClick(AdapterView<?> arg0, View arg1, int arg2, long arg3) {
+						String tempString = ((TextView) arg1).getText().toString();
+						int index = tempString.indexOf(' ');
+						serverIpAddress = tempString.substring(index+1).trim();
+						Log.d("ip", serverIpAddress);
+						AsyncThread blah = new AsyncThread();
+           	connections.add(blah);
+           	blah.setSend(false);
+           	if(connections.size() == 1)
+           		currentBot = blah;
+           	blah.execute();
+						alertBot.dismiss();
+					}
+					
+				});
+				return alertBot;
          
 		case 1:
 			LayoutInflater factory2 = LayoutInflater.from(this);
-	         final View view = factory2.inflate(R.layout.alert_dialog_list, null);
+	         final View view = factory2.inflate(R.layout.alert_dialog_2, null);
 	         //((ListView) listView).setAdapter(arrayAdapter);
 	       //  TextView current = (TextView) view.findViewById(R.id.currentBot);
 	        // for(int i = 0; i < connections.size(); i++)
 	        	// if(connections)
+	       //  int currentIndex =-1;
+	         arrayAdapter =  new ArrayAdapter<String>(this, R.layout.alert_dialog_list_text_view);
 	         if(currentBot != null)
 	         {
-	        	// current.setText(currentBot.getServerAddr());
+		         for(int i = 0; i <connections.size(); i++)
+		         {
+		        	 arrayAdapter.add((Integer.toString(i))+" "+((AsyncThread) connections.get(i)).getServerAddr());
+		        	 //if(((AsyncThread) connections.get(i)).getServerAddr().equals(currentBot.getServerAddr()))
+		        	// {
+		        		 TextView text = (TextView) view.findViewById(R.id.currentBotText);
+		        		 text.setText(currentBot.getServerAddr());
+		        	// }
+		        	 //Log.d("currentIndex", Integer.toString(currentIndex));
+		         }
 	         }
-	         arrayAdapter =  new ArrayAdapter<String>(this, R.layout.alert_dialog_list_text_view);
-	         for(int i = 0; i <connections.size(); i++)
-	         {
-	        	 arrayAdapter.add((Integer.toString(i))+" "+((AsyncThread) connections.get(i)).getServerAddr());
-	         }
-	         final ListView list = (ListView) view.findViewById(R.id.botListView);
-	         
+
+	         final ListView list = (ListView) view.findViewById(R.id.botListView2);
 	         list.setAdapter(arrayAdapter);
+	        // ((CheckedTextView) list.getChildAt(currentIndex)).setChecked(true);
 	         AlertDialog.Builder builder = new AlertDialog.Builder(ControlsActivity.this);
 	         
 	             builder.setIcon(R.drawable.alert_dialog_icon);
@@ -581,10 +678,12 @@ public class ControlsActivity extends Activity
 	             });
 	             
 	            final  AlertDialog alert = builder.create();
+	          //  list.
+	            //((CheckedTextView) list.getChildAt(currentIndex)).setChecked(true);
 	         list.setOnItemClickListener(new OnItemClickListener() {
 	        	 @Override
 	        	 public void onItemClick(AdapterView<?> arg0, View arg1, int arg2, long arg3) {
-	        	  TextView tv = (TextView) arg1;
+	        	  CheckedTextView tv = (CheckedTextView) arg1;
 	        	  String s = tv.getText().toString().substring(0,1);
 	        	  //toast(s);
 	        	  int index = Integer.parseInt(s);
@@ -653,83 +752,16 @@ public class ControlsActivity extends Activity
 		}
 		return null;
     }
-
-	private void LoadPreferences(){
-
-		  //  String strSavedMem1 = sharedPreferences.getString("MEM1", "");
-		    //String strSavedMem2 = sharedPreferences.getString("MEM2", "");
-		   }
 	
 	@Override
 	public void onActivityResult(int requestCode,int resultCode,Intent data){
 		if(requestCode == 1 && resultCode == Activity.RESULT_OK)
 		{
-			parseRoute(data.getStringExtra("nd.reu.ndbot.PlanRouteActivity"));
+			route = true;
+			command = "AI"+data.getStringExtra("nd.reu.ndbot.RouteActivity");
+			currentBot.setSend(true);
 		}
 		
-	}
-	
-	private void parseRoute(String routeData){
-		route = true;
-		routeData = routeData.substring(4);
-		String[] route =routeData.split("\n");
-		String[] time = new String[route.length];
-		float [] routeTime = new float[route.length];
-		int [] routeTimeInt = new int[route.length];
-		for(int i = 0; i<route.length; i++)
-		{
-			int index = route[i].indexOf('~', 8);
-			time[i] = route[i].substring(index+1);
-			route[i] = route[i].substring(0,index);
-			//Log.d("ClientActivity", route[i]);
-			//Log.d("ClientActivity", time[i]);
-			routeTime[i] = Float.parseFloat(time[i]);
-			routeTime[i] *=1000;
-			routeTimeInt[i] = (int) routeTime[i];
-			//Log.d("ClientActivity", time[i]);
-		}
-		//sendRoute(route, routeTimeInt);
-		//routeThread routeToTravel = (routeThread) new routeThread().execute(new GatherData(route, routeTimeInt));
-		new routeThread().execute(new GatherData(route, routeTimeInt));
-	}
-	
-	/*public void sendRoute(String[] route, int[] time){
-		
-	}
-	*/
-	class routeThread extends AsyncTask<GatherData, String,Void> {
-
-		@Override
-		protected Void doInBackground(GatherData... gatherData) {
-			
-			
-			for(int i = 0; i<gatherData[0].route.length; i++)
-			{
-				if(route)
-				{
-					publishProgress(gatherData[0].route[i]);
-					try {
-						//Log.d("thread sleep time", Integer.toString(gatherData[0].time[i]));
-						Thread.sleep(gatherData[0].time[i]);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-				}
-				else
-					return null;
-				
-			}
-			publishProgress("0.00,0.00");
-			
-			return null;
-		}
-		@Override
-		protected void onProgressUpdate(String... route){
-			//Log.d("OnProgress", route[0]);
-			command = route[0];
-            if(currentBot != null)
-            	currentBot.setSend(true);
-		}	
 	}
 
 	class GatherData{//to make sending data to routeThread easier

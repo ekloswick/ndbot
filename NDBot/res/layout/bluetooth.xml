@@ -71,9 +71,9 @@
         android:textAppearance="?android:attr/textAppearanceLarge" />
 
     <TextView
-        android:id="@+id/azimuth"
+        android:id="@+id/sensor"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="north" />
+        android:text="accel Readings" />
 
 </LinearLayout>

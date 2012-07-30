@@ -74,7 +74,7 @@ public class PlanRouteActivity extends Activity {
             			Route = Route + "F"+s+" ";
             			listText.setText(Route);
             		}
-            		commandString += "-8.00,0.00~"+s+'\n';
+            		commandString += "-8.00,0.00~"+s+'*';
             	Log.d("ClientActivity", commandString);
             		lengthText.setText("");
             	
@@ -101,7 +101,7 @@ public class PlanRouteActivity extends Activity {
             			Route = Route+ "B"+s+" ";
             			listText.setText(Route);
             		}
-            		commandString += "8.00,0.00~"+s+'\n';
+            		commandString += "8.00,0.00~"+s+'*';
             		lengthText.setText("");
 
             	}
@@ -127,7 +127,7 @@ public class PlanRouteActivity extends Activity {
             			Route = Route+"L"+s+" ";
             			listText.setText(Route);
             		}
-            		commandString += "0.00,-8.00~"+s+'\n';
+            		commandString += "0.00,-8.00~"+s+'*';
                 	lengthText.setText("");
 
             	}
@@ -153,7 +153,7 @@ public class PlanRouteActivity extends Activity {
             			Route = Route + "R"+s+" ";
             			listText.setText(Route);
             		}
-            		commandString += "0.00,8.00~"+s+'\n';
+            		commandString += "0.00,8.00~"+s+'*';
                 	lengthText.setText("");
 
             	}
@@ -180,7 +180,7 @@ public class PlanRouteActivity extends Activity {
             			listText.setText(Route);
             		}
             			
-            		commandString += "-8.00,-8.00~"+s+'\n';
+            		commandString += "-8.00,-8.00~"+s+'*';
             		lengthText.setText("");
 
             	}
@@ -206,7 +206,7 @@ public class PlanRouteActivity extends Activity {
             			Route += "FR"+s+" ";
             			listText.append("FR"+s+" ");
             		}
-            		commandString += "-8.00,8.00~"+s+'\n';
+            		commandString += "-8.00,8.00~"+s+'*';
             		lengthText.setText("");
 
             	}
@@ -232,7 +232,7 @@ public class PlanRouteActivity extends Activity {
             			Route += "S"+s+" ";
             			listText.append("S"+s+" ");
             		}
-            		commandString += "0.00,0.00~"+s+'\n';
+            		commandString += "0.00,0.00~"+s+'*';
                 	lengthText.setText("");
 
             	}
@@ -286,7 +286,7 @@ public class PlanRouteActivity extends Activity {
 			public void onClick(View arg0) {
 				//actual command
 				String newString = commandString.substring(0, commandString.length()-1);
-				int index = newString.lastIndexOf('\n');
+				int index = newString.lastIndexOf('*');
 				commandString = newString.substring(0, index+1);
 				//readable version
 				String newString2 = Route.substring(0, Route.length()-1);

@@ -61,7 +61,7 @@ public class RouteActivity extends Activity{
 				else
 				{
 	        		Intent intent=new Intent();
-	        		intent.putExtra("nd.reu.ndbot.PlanRouteActivity",command);
+	        		intent.putExtra("nd.reu.ndbot.RouteActivity",command);
 	        		setResult(RESULT_OK, intent);
 	        	    finish();
 				}

@@ -19,7 +19,13 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-            
+     <ListView
+        android:id="@+id/previousBots"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:stackFromBottom="true"
+        android:layout_weight="1">   
+     </ListView>       
     <EditText
         android:id="@+id/ipMenu"
         android:layout_height="wrap_content"
