@@ -23,6 +23,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -36,6 +39,8 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.AdapterView;
@@ -60,9 +65,13 @@ public class ControlsActivity extends Activity
     private ArrayList <Boolean> sendData = new ArrayList<Boolean>();
    // private ArrayList <Boolean> connections = new ArrayList<Boolean>();
     private ArrayList <AsyncTask<Void, Void, Void> > connections = new ArrayList<AsyncTask<Void, Void, Void> >();
-    private String frameToGet = "";
     ArrayAdapter<String> arrayAdapter; 
     AsyncThread currentBot;
+    int bufferSize = 4096;
+    private boolean cameraConnected = false;
+    private byte[] frameToGet = new byte[bufferSize];
+    public static final int STREAMSERVERPORT = 8888;
+    int surfaceWidth, surfaceHeight;
     
     private boolean accel = false;
     private boolean button = true;
@@ -78,6 +87,9 @@ public class ControlsActivity extends Activity
     private ImageButton mForwardRightButton;
     private ImageButton mStopButton;
     private Button mWifiButton;
+    private SurfaceView videoStream;
+	private SurfaceHolder surfaceHolder;
+    private Bitmap imageToShow;
     
     //text fields to show speed values of accelerometer
     private TextView sensorX;
@@ -109,8 +121,7 @@ public class ControlsActivity extends Activity
 		wifiStatus = (TextView) findViewById(R.id.wifiConnected_id);
 		
         toast("create wifi button");
-        
-	}
+    }
 	
 	private SensorEventListener listener=new SensorEventListener() {
 		
@@ -149,13 +160,13 @@ public class ControlsActivity extends Activity
     	private boolean send;
     	private boolean activeBot;
     	InetAddress serverAddr;
-    	//String bacon = "Happy happy joy joy";
     	int state = 0;
+    	
 		@Override
 		protected Void doInBackground(Void... params) {			
 			try {
                 serverAddr = InetAddress.getByName(serverIpAddress);
-                Log.d("ClientActivity", "C: Connecting...");
+                //Log.d("ClientActivity", "C: Connecting...");
                 Socket socket = new Socket(serverAddr, 8080);
                 PrintWriter output = new PrintWriter(socket.getOutputStream());
                 BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -172,7 +183,7 @@ public class ControlsActivity extends Activity
 	                        send = false;
 	                        output.println(command);
 	                        output.flush();
-	                        frameToGet = input.readLine();
+	                        input.readLine();
                         }
                         
                         if (connections.indexOf(this) == -1) {
@@ -189,9 +200,9 @@ public class ControlsActivity extends Activity
                 }
                 
                 socket.close();
-                Log.d("ClientActivity", "C: Closed.");
+                //Log.d("ClientActivity", "C: Closed.");
             } catch (Exception e) {
-                Log.e("ClientActivity", "C: Error", e);
+                //Log.e("ClientActivity", "C: Error", e);
                 connections.remove(this);
             }
 			return null;
@@ -232,14 +243,16 @@ public class ControlsActivity extends Activity
 	public void toast(String text) {
     	Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
+	
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.control_menu, menu);
         return true;
     }
+	
 	@Override
-	 public boolean onOptionsItemSelected(MenuItem item) {
+	public boolean onOptionsItemSelected(MenuItem item) {
 	        switch (item.getItemId()) {
 	        case R.id.buttons:
 	        	if(button)
@@ -450,6 +463,11 @@ public class ControlsActivity extends Activity
 		mSensorManager.registerListener(listener, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
 		toast("enable Accel");
 
+		videoStream = (SurfaceView) findViewById(R.id.surfaceView_id);
+        surfaceHolder = videoStream.getHolder();
+        surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+        surfaceWidth = videoStream.getWidth();
+        surfaceHeight = videoStream.getHeight();
 	}
 	
 	public void disableAccel(){
@@ -491,6 +509,7 @@ public class ControlsActivity extends Activity
 	
 
 	}
+	
 	protected AlertDialog onCreateDialog(int id){
 		switch(id){
 			case 0:
@@ -514,6 +533,12 @@ public class ControlsActivity extends Activity
                      		currentBot = blah;
                      		//((AsyncThread) connections.get(0)).setActive(true);
                      	blah.execute();
+                     	
+                     	if (accel && !cameraConnected) {
+                     		AsyncGetStreamThread cameraThread = new AsyncGetStreamThread();
+                     		cameraThread.execute();
+                     		cameraConnected = true;
+                     	}
                      }
 
                  }
@@ -616,7 +641,6 @@ public class ControlsActivity extends Activity
 
 				@Override
 				public void onNothingSelected(AdapterView<?> arg0) {
-					// TODO Auto-generated method stub
 					
 				} });
 	 	      final  AlertDialog alert2 = builder2.create();
@@ -629,7 +653,8 @@ public class ControlsActivity extends Activity
 		}
 		return null;
     }
-	   private void LoadPreferences(){
+
+	private void LoadPreferences(){
 
 		  //  String strSavedMem1 = sharedPreferences.getString("MEM1", "");
 		    //String strSavedMem2 = sharedPreferences.getString("MEM2", "");
@@ -684,10 +709,9 @@ public class ControlsActivity extends Activity
 				{
 					publishProgress(gatherData[0].route[i]);
 					try {
-						Log.d("thread sleep time", Integer.toString(gatherData[0].time[i]));
+						//Log.d("thread sleep time", Integer.toString(gatherData[0].time[i]));
 						Thread.sleep(gatherData[0].time[i]);
 					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
 				}
@@ -701,13 +725,13 @@ public class ControlsActivity extends Activity
 		}
 		@Override
 		protected void onProgressUpdate(String... route){
-			Log.d("OnProgress", route[0]);
+			//Log.d("OnProgress", route[0]);
 			command = route[0];
             if(currentBot != null)
             	currentBot.setSend(true);
 		}	
 	}
-	
+
 	class GatherData{//to make sending data to routeThread easier
 		String[] route;
 		int[] time;
@@ -718,7 +742,117 @@ public class ControlsActivity extends Activity
 		}
 	}
 
-
+	class AsyncGetStreamThread extends AsyncTask<Void, Void, Void> {
+    	String bacon = "";
+    	int state = 0, readLength = -1;
+    	Canvas easel = null;
+    	byte[] temporary = new byte[bufferSize];
+    	
+		@Override
+		protected Void doInBackground(Void... params) {			
+			try {
+                state = 0;
+                InetAddress serverAddr = InetAddress.getByName(serverIpAddress);
+                //Log.d("ClientActivity", "C: Connecting...");
+                Socket socket = new Socket(serverAddr, STREAMSERVERPORT);
+                DataInputStream dis = new DataInputStream(socket.getInputStream());
+                DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+                state = 1;
+                publishProgress();
+                
+                while (state == 1) {
+                    try {
+                    	// get number of bytes to read
+                    	readLength = dis.readInt();
+                        //Log.d("First Read Length", "" + readLength);
+                    	
+                    	// first handshake
+                    	dos.writeInt(5);
+                    	dos.flush();
+                    	
+                    	// get actual byte array
+                    	if (readLength > 0 && readLength <= temporary.length)
+                    		dis.read(temporary, 0, readLength);
+                    	else while (dis.available() > 0)
+                    		dis.read();
+                    	
+                    	frameToGet = temporary;
+                    	
+                    	// second handshake
+                    	dos.writeInt(5);
+                    	dos.flush();
+                    	
+                    	// cleanup
+                    	temporary = new byte[bufferSize];
+                    	publishProgress();
+                    } catch (Exception e) {
+                        Log.e("ClientActivity", "S: Error", e);
+                        state = 0;
+                    }
+                }
+                
+                dis.close();
+                dos.close();
+                socket.close();
+                
+                cameraConnected = false;
+                
+                //Log.d("ClientActivity", "C: Closed.");
+            } catch (Exception e) {
+                //Log.e("ClientActivity", "C: Error", e);
+            }
+			return null;
+		}
+		
+		@Override
+		protected void onProgressUpdate(Void... values) {
+            switch (state) {
+				case 0:
+					wifiStatus.setText("Not connected");
+					break;
+				case 1:
+					wifiStatus.setText("Connected");
+					break;
+			}
+            
+            onDraw();
+        }
+		
+		public void onDraw() {
+            //Log.d("onDraw", "Beginning of function");
+            
+			if (frameToGet != null)
+			{
+	            //Log.d("onDraw", "frameToGet is not null");
+	            easel = surfaceHolder.lockCanvas();
+	            
+	            if (easel != null && readLength > 0) {
+	                //Log.d("onDraw", "easel is not null");
+	                
+	            	try {
+		            	imageToShow = BitmapFactory.decodeByteArray(frameToGet, 0, frameToGet.length);
+		            } catch (Exception e) {
+		            	easel.drawRGB(111, 70, 150);
+		            }
+		        	
+		            if (imageToShow != null) {
+		            	if (surfaceWidth > 0)
+		            		imageToShow = Bitmap.createScaledBitmap(imageToShow, surfaceWidth, surfaceHeight, false);
+		                
+		            	//Log.d("onDraw", "surfaceWidth = " + surfaceWidth);
+		            	//Log.d("onDraw", "imageToShow is not null");
+		            	easel.drawBitmap(imageToShow, 0, 0, null);
+		                //Log.d("onDraw", "Bitmap drawn");
+		            }
+	            }
+	            
+	            if (easel != null)
+	            	surfaceHolder.unlockCanvasAndPost(easel);
+	            
+				frameToGet = new byte[bufferSize];
+			}
+		}
+    }
 	
 }
 

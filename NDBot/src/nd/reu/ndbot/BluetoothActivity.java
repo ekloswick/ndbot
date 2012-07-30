@@ -17,11 +17,13 @@
 package nd.reu.ndbot;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
@@ -29,18 +31,17 @@ import java.net.Socket;
 import java.util.Collections;
 import java.util.List;
 
-//import nd.reu.ndbot.BluetoothActivity.AsyncThread;
-
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.hardware.Camera.Size;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -51,23 +52,20 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.SurfaceHolder;
-import android.view.SurfaceHolder.Callback;
 import android.view.SurfaceView;
 import android.view.View;
-import android.view.Window;
 import android.view.View.OnClickListener;
+import android.view.Window;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/**
- * This is the main Activity that displays the current chat session.
- */
 public class BluetoothActivity extends Activity {
 	
     public static String SERVERIP = null;//"10.24.189.99";
-    public static final int SERVERPORT = 8080;
-    private ServerSocket ss;
+    public static final int CONTROLSERVERPORT = 8080;
+    public static final int STREAMSERVERPORT = 8888;
+    private ServerSocket ssControls, ssStream;
     public Boolean isCancelled = false;
     DataInputStream input;
     DataOutputStream output;
@@ -75,10 +73,9 @@ public class BluetoothActivity extends Activity {
     private TextView bluetoothStatus;
     private TextView receivedMessage;
     private TextView compassReading;
-    private SurfaceView viewToSend;
-	private SurfaceHolder surfaceHolder;
 	private boolean previewRunning;
-	private String frameToSend = "";
+	private byte[] frameToSend = null;
+    private SurfaceView viewSurface;
     
     // Debugging
     private static final String TAG = "NDBotBluetooth";
@@ -105,7 +102,8 @@ public class BluetoothActivity extends Activity {
     private Button mWifiButton;
     private Button mBluetoothButton;
     private Button mResetButton;
-
+    private Camera camera;
+    
     // Name of the connected device
     private String mConnectedDeviceName = null;
     // String buffer for outgoing messages
@@ -195,7 +193,9 @@ public class BluetoothActivity extends Activity {
         mWifiButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
             	SERVERIP = getLocalIpAddress();
-                new AsyncThread().execute();
+                new AsyncControlsThread().execute();
+                new AsyncStreamThread().execute();
+                new AsyncCameraThread().execute();
             }
         });
         
@@ -209,7 +209,9 @@ public class BluetoothActivity extends Activity {
         mResetButton = (Button) findViewById(R.id.resetButton_id);
         mResetButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
+            	isCancelled = true;
             	restartActivity();
+            	mWifiButton.setEnabled(true);
             }
         });
         
@@ -231,6 +233,8 @@ public class BluetoothActivity extends Activity {
         } else {
             if (mChatService == null) setupBluetoothConnection();
         }
+        
+        viewSurface = (SurfaceView) findViewById(R.id.surfaceView_id);
     }
 
     @Override
@@ -253,7 +257,7 @@ public class BluetoothActivity extends Activity {
     }
 
     private void setupBluetoothConnection() {
-        Log.d(TAG, "setupBluetoothConnection()");
+        //Log.d(TAG, "setupBluetoothConnection()");
 
         // Initialize the BluetoothChatService to perform bluetooth connections
         mChatService = new BluetoothActivityService(this, mHandler);
@@ -284,7 +288,7 @@ public class BluetoothActivity extends Activity {
     }
 
     private void ensureDiscoverable() {
-        if(D) Log.d(TAG, "ensure discoverable");
+        //if(D) Log.d(TAG, "ensure discoverable");
         if (mBluetoothAdapter.getScanMode() !=
             BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
@@ -365,7 +369,7 @@ public class BluetoothActivity extends Activity {
     };
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if(D) Log.d(TAG, "onActivityResult " + resultCode);
+        //if(D) Log.d(TAG, "onActivityResult " + resultCode);
         switch (requestCode) {
         case REQUEST_CONNECT_DEVICE:
             // When DeviceListActivity returns with a device to connect
@@ -385,7 +389,7 @@ public class BluetoothActivity extends Activity {
                 setupBluetoothConnection();
             } else {
                 // User did not enable Bluetooth or an error occured
-                Log.d(TAG, "BT not enabled");
+                //Log.d(TAG, "BT not enabled");
                 Toast.makeText(this, R.string.bt_not_enabled_leaving, Toast.LENGTH_SHORT).show();
                 finish();
             }
@@ -420,7 +424,7 @@ public class BluetoothActivity extends Activity {
         startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE);
     }
 
-    class AsyncThread extends AsyncTask<Void, Void, Void> {
+    class AsyncControlsThread extends AsyncTask<Void, Void, Void> {
     	
     	String bacon = "0,0";
     	int state = 0;
@@ -430,10 +434,10 @@ public class BluetoothActivity extends Activity {
 			try {
                 if (SERVERIP != null) {
                 	state = 0;
-                    ss = new ServerSocket(SERVERPORT);
+                    ssControls = new ServerSocket(CONTROLSERVERPORT);
                 	publishProgress();
                 	
-                    Socket client = ss.accept();
+                    Socket client = ssControls.accept();
                     BufferedReader input = new BufferedReader(new InputStreamReader(client.getInputStream()));
                     PrintWriter output = new PrintWriter(client.getOutputStream(), true);
                 	publishProgress();
@@ -442,13 +446,12 @@ public class BluetoothActivity extends Activity {
                     	state = 1;
                     	publishProgress();
                         bacon = input.readLine();
-                        output.println(frameToSend);
-                        frameToSend = "";
+                        output.println();
                     }
                     
                     input.close();
                     output.close();
-                    ss.close();
+                    ssControls.close();
                 } else {
                 	state = 3;
                 	publishProgress();
@@ -490,6 +493,214 @@ public class BluetoothActivity extends Activity {
 			receivedMessage.setText(bacon);
 		}
     }
+    
+    class AsyncStreamThread extends AsyncTask<Void, Void, Void> {
+
+    	int state = 0;
+    	String bacon = "";
+    	
+		@Override
+		protected Void doInBackground(Void... params) {
+			try {
+                if (SERVERIP != null) {
+                	state = 0;
+                    publishProgress();
+                	ssStream = new ServerSocket(STREAMSERVERPORT);
+                    Socket client = ssStream.accept();
+                    DataInputStream dis = new DataInputStream(client.getInputStream());
+                    DataOutputStream dos = new DataOutputStream(client.getOutputStream());
+                	state = 1;
+                	publishProgress();
+                	
+                    while (!isCancelled) {                    	
+                    	if (frameToSend != null && frameToSend.length > 0) {
+                    		// write the number of bytes to read
+                    		bacon = "Length is " + frameToSend.length;
+                    		dos.writeInt(frameToSend.length);
+                    		dos.flush();
+                    		
+                    		// get first handshake
+                    		dis.readInt();
+                    		
+                    		// write the actual byte array
+                    		if (frameToSend != null) {
+                    			dos.write(frameToSend, 0, frameToSend.length);
+                    			dos.flush();
+                    		}/* else {
+                    			dos.write(null);
+                    			dos.flush();
+                    		}*/
+                    	
+                    		// get second handshake
+                    		dis.readInt();
+                    		
+                    		// cleanup
+	                    	publishProgress();
+	                    	frameToSend = null;
+	                    	Thread.sleep(100);
+                    	}
+                    }
+                    dos.close();
+                    dis.close();
+                    client.close();
+                    ssStream.close();
+                    //Log.d("END OF PROGRAM", "Everything's closed");
+                } else {
+                	state = 3;
+                	publishProgress();
+                }
+            } catch (Exception e) {
+            	state = 4;
+            	publishProgress();
+                e.printStackTrace();
+            }
+			return null;
+		}
+    }
+    
+    class AsyncCameraThread extends AsyncTask<Void, Void, Void> implements SurfaceHolder.Callback {
+
+	    SurfaceHolder surfaceHolder = viewSurface.getHolder();
+		int state = 0;
+		Bitmap bitmap = null;
+		
+		public void surfaceCreated(SurfaceHolder holder) {
+			camera = Camera.open();
+			
+			state = 1;
+			//Log.d("STATE CHECK", "State: 1");
+			
+			if (camera != null)
+				camera.setDisplayOrientation(90);
+			else {
+				toast("Camera not available!");
+				finish();
+			}
+		}
+
+		public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+			if (previewRunning){
+				camera.stopPreview();
+			}
+			
+			state = 2;
+			//Log.d("STATE CHECK", "State: 2");
+			
+			Camera.Parameters p = camera.getParameters();
+			List<Camera.Size> sizesList = p.getSupportedPreviewSizes();
+			Camera.Size previewSize = sizesList.get(sizesList.size() - 1);
+			
+			// for logging the allowable screen resolutions, highest to lowest
+			/*for (int i = 0; i < sizesList.size(); i++){
+		        previewSize = (Size) sizesList.get(i);
+		        Log.i("PictureSize", "Supported Size. Width: " + previewSize.width + " Height: " + previewSize.height); 
+		    }*/
+			
+			p.setPreviewSize(previewSize.width, previewSize.height);
+			camera.setParameters(p);
+
+			//Log.d("STATE CHECK", "Right outside try/catch in surfaceChanged");
+			
+			try {
+				camera.setPreviewDisplay(holder);
+				camera.setPreviewCallback( mPreviewCallback );
+				holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+				camera.startPreview();
+				previewRunning = true;
+			}
+			catch (IOException e) {
+				//Log.e(TAG,e.getMessage());
+				e.printStackTrace();
+			}
+		}
+		
+		public void surfaceDestroyed(SurfaceHolder holder) {
+			state = 4;
+			//Log.d("STATE CHECK", "State: 4");
+			
+			/*camera.stopPreview();
+			previewRunning = false;
+			camera.release();*/
+		}
+		
+		Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback()
+		{
+			@Override
+			public void onPreviewFrame(byte[] data, Camera camera)
+			{
+				state = 3;
+///////////////////		
+				if ( camera != null && isCancelled == false)
+				{
+                    Camera.Parameters parameters = camera.getParameters();
+                    int imageFormat = parameters.getPreviewFormat();
+
+                    if ( imageFormat == ImageFormat.NV21 )
+                    {
+                        int w = parameters.getPreviewSize().width;
+                        int h = parameters.getPreviewSize().height;
+                        YuvImage yuvImage = new YuvImage( data, imageFormat, w, h, null );
+                        Rect rect = new Rect( 0, 0, w, h );
+                        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                        yuvImage.compressToJpeg( rect, 10, outputStream );
+                        
+                        //Log.d("IMAGING", "NV21 format");
+                        if (frameToSend == null)
+                        	frameToSend = outputStream.toByteArray();
+                    }
+                    else if ( imageFormat == ImageFormat.JPEG || imageFormat == ImageFormat.RGB_565 )
+                    {
+                        //Log.d("IMAGING", "JPEG/RGB format");
+                    	if (frameToSend == null)
+                    		frameToSend = data;
+                    }
+				}
+                else if (camera == null)
+                {
+                    Log.e( getLocalClassName(), "Camera is null" );
+                }
+///////////////////
+			}
+		};
+		
+		@Override
+		protected Void doInBackground(Void... arg0)
+		{
+			//Log.d("STATE CHECK", "doInBackground start");
+			surfaceCreated(surfaceHolder);
+			surfaceChanged(surfaceHolder, state, state, state);
+			camera.setPreviewCallback(mPreviewCallback);
+			
+			while (previewRunning) {
+				publishProgress();
+			}
+			return null;
+		}
+		
+		@Override
+		protected void onProgressUpdate(Void... values) {
+			switch (state) {
+				case 0:
+					toast("State 0, starting...");
+					break;
+				case 1:
+					toast("State 1, camera opened");
+					break;
+				case 2:
+					//Log.d("PublishProgress", "case 2");
+					break;
+				case 3:
+					//Log.d("PublishProgress", "case 3");
+					break;
+				case 4:
+					toast("State 4, camera closed");
+					break;
+				default:
+					toast("Default, something's up");
+					break;
+			}
+		}
+	}
     
     private void interpretAccelerometer(String xy){
     	String[] strArr = xy.split(",");
@@ -570,8 +781,9 @@ public class BluetoothActivity extends Activity {
              {
                  for (InetAddress addr : Collections.list(intf.getInetAddresses()))
                  {
-                     if (!addr.isLoopbackAddress())
+                     if (!addr.isLoopbackAddress() && (addr instanceof Inet4Address)) {
                          return addr.getHostAddress();
+                     }
                  }
              }
              throw new RuntimeException("No network connections found.");
@@ -588,14 +800,9 @@ public class BluetoothActivity extends Activity {
     }
     
     public void restartActivity() {
-    	try
-		{
-			ss.close();
-		} catch (IOException e)
-		{
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		camera.stopPreview();
+		previewRunning = false;
+		camera.release();
 		Intent intent = getIntent();
 		finish();
 		startActivity(intent);
@@ -611,7 +818,6 @@ public class BluetoothActivity extends Activity {
 
 		@Override
 		public void onSensorChanged(SensorEvent event) {
-		 // TODO Auto-generated method stub
 			if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
 	            smoothed = LowPassFilter.filter(event.values, valuesAccelerometer);
 	            valuesAccelerometer[0] = smoothed[0];
@@ -647,119 +853,5 @@ public class BluetoothActivity extends Activity {
 		  
 		}
 	};*/
-
-	
     
-    /*
-    
-    class AsyncCameraThread extends AsyncTask<Void, Void, Void> implements Callback{
-
-    	int state = 0;
-    	private Camera camera;
-    	
-    	@Override
-		protected Void doInBackground(Void... params) {
-			try {
-				if (state == 0)
-					publishProgress();
-				
-            } catch (Exception e) {
-            	publishProgress();
-                e.printStackTrace();
-            }
-			return null;
-		}
-    	
-    	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-    		if (previewRunning){
-    			camera.stopPreview();
-    		}
-    		Camera.Parameters p = camera.getParameters();
-    		List<Camera.Size> sizesList = p.getSupportedPreviewSizes();
-    		Camera.Size previewSize = sizesList.get(0);
-    		
-    		// for logging the allowable screen resolutions, highest to lowest
-    		for (int i = 0; i < sizesList.size(); i++){
-    	        previewSize = (Size) sizesList.get(i);
-    	        Log.i("PictureSize", "Supported Size. Width: " + previewSize.width + " Height: " + previewSize.height); 
-    	    }
-    		
-    		p.setPreviewSize(previewSize.width, previewSize.height);
-    		//p.setPreviewFormat(PixelFormat.RGB_565); // causes runtime error
-    		camera.setParameters(p);
-
-    		try {
-    			camera.setPreviewDisplay(holder);
-    			camera.setPreviewCallback( mPreviewCallback );
-    			camera.startPreview();
-    			previewRunning = true;
-    		}
-    		catch (IOException e) {
-    			Log.e(TAG,e.getMessage());
-    			e.printStackTrace();
-    		}
-    	}
-        
-        public void surfaceCreated(SurfaceHolder holder) {
-    		camera = Camera.open();
-    		
-    		if (camera != null){
-    			Camera.Parameters params = camera.getParameters();
-    			camera.setParameters(params);
-    			camera.setDisplayOrientation(90);
-    		}
-    		else {
-    			Toast.makeText(getApplicationContext(), "Camera not available!", Toast.LENGTH_LONG).show();
-    			finish();
-    		}
-    	}
-        
-        public void surfaceDestroyed(SurfaceHolder holder) {
-        	if (camera != null) {
-        		camera.stopPreview();
-        		previewRunning = false;
-        		camera.release();
-        	}
-    	}
-        
-        Camera.PreviewCallback mPreviewCallback = new Camera.PreviewCallback()
-    	{
-            @Override
-            public void onPreviewFrame(byte[] data, Camera camera) {
-            	for (int i = 0; i < data.length - 1; i++){
-            		frameToSend = frameToSend + data[i];
-            	}
-            	
-            	//Toast.makeText(VideoStreamActivity.this, "Toast", Toast.LENGTH_SHORT).show();
-            	Log.d(TAG, "onPreviewFrame! data is " + (data == null ? "null!" : "ok!"));
-            }
-        };
-		
-		
-		@Override
-		protected void onProgressUpdate(Void... values) {
-			switch (state) {
-				case 0:
-			        // sets up the camera for output
-			        viewToSend = (SurfaceView) findViewById(R.id.surfaceView_id);
-			        surfaceHolder = viewToSend.getHolder();
-			        surfaceHolder.addCallback(this);
-			        surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-			        state = 1;
-                    break;
-				case 1:
-					break;
-				case 2:
-					break;
-				case 3:
-                    break;
-				case 4:
-	                break;
-				default:
-					break;
-			}
-		}
-    }
-    */
-     
 }

@@ -37,4 +37,13 @@
         android:layout_below="@+id/wifiConnected_id"
         android:text="Bot Accelerometer Readings" />
 
+    <SurfaceView
+        android:id="@+id/surfaceView_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/sensorY_id"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/bot_accel_id" />
+
 </RelativeLayout>
