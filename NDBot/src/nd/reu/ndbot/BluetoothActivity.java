@@ -30,17 +30,23 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Collections;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
+
 import android.hardware.Camera;
 import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
@@ -73,8 +79,11 @@ public class BluetoothActivity extends Activity {
     private TextView bluetoothStatus;
     private TextView receivedMessage;
     private TextView compassReading;
-	private boolean previewRunning;
-	private byte[] frameToSend = null;
+    private SurfaceView viewToSend;
+    private SurfaceHolder surfaceHolder;
+    private boolean route = true;
+    private boolean previewRunning;
+    private byte[] frameToSend = null;
     private SurfaceView viewSurface;
     
     // Debugging
@@ -120,15 +129,33 @@ public class BluetoothActivity extends Activity {
     private Sensor sensorAccelerometer;
     private Sensor sensorMagneticField;
      
+    //private float[][] values;
+    private float highValue = -10;
+    private float lowValue = 10;
     private float[] valuesAccelerometer;
     private float[] valuesMagneticField;
+    private float[] gravity;
+    private float[] linear_acceleration;
      
     private float[] matrixR;
     private float[] matrixI;
     private float[] matrixValues;
     private static float smoothed[] = new float[3];
-    TextView readingAzimuth, readingPitch, readingRoll;
+    TextView accel, readingAzimuth, readingPitch, readingRoll;
     
+    //Route following
+    AsyncControlsThread conThread;
+  	private Timer timer;
+  	
+  	//AI
+  	AI ai;
+  	String current;
+    String override;
+    private boolean collision = false;
+    
+    AsyncStreamThread strThread;
+    AsyncCameraThread camThread;
+  	
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -158,13 +185,8 @@ public class BluetoothActivity extends Activity {
             finish();
             return;
         }
-        readingAzimuth = (TextView)findViewById(R.id.azimuth);
-       // readingPitch = (TextView)findViewById(R.id.pitch);
-       // readingRoll = (TextView)findViewById(R.id.roll);
-      //  compassReading = (TextView) findViewById(R.id.compass);
-      //  mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-		//compass = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-		// mSensorManager.registerListener(listener,compass,SensorManager.SENSOR_DELAY_NORMAL);
+        accel = (TextView) findViewById(R.id.sensor);
+        ai = new AI();	
 		 
 		 
 	  mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
@@ -173,7 +195,9 @@ public class BluetoothActivity extends Activity {
 	    
 	  valuesAccelerometer = new float[3];
 	  valuesMagneticField = new float[3];
-
+	  gravity = new float[3];
+	  linear_acceleration = new float[3];
+	  
 	  matrixR = new float[9];
 	  matrixI = new float[9];
 	  matrixValues = new float[3];
@@ -193,9 +217,13 @@ public class BluetoothActivity extends Activity {
         mWifiButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
             	SERVERIP = getLocalIpAddress();
-                new AsyncControlsThread().execute();
-                new AsyncStreamThread().execute();
-                new AsyncCameraThread().execute();
+
+               conThread =  new AsyncControlsThread();
+               conThread.execute();
+                strThread = new AsyncStreamThread();
+                strThread.execute();
+                camThread = new AsyncCameraThread();
+                camThread.execute();
             }
         });
         
@@ -252,8 +280,42 @@ public class BluetoothActivity extends Activity {
               mChatService.start();
             }
         }
-      //  mSensorManager.registerListener(listener,sensorAccelerometer,SensorManager.SENSOR_DELAY_NORMAL);
+        mSensorManager.registerListener(listener,sensorAccelerometer,SensorManager.SENSOR_DELAY_NORMAL);
        // mSensorManager.registerListener(listener,sensorMagneticField,SensorManager.SENSOR_DELAY_NORMAL);
+        timer = new Timer();
+        TimerTask timertask = new TimerTask(){
+        	public void run(){
+        		long startedAt = System.currentTimeMillis();
+       // 		boolean finishedCorrectly = true;
+        		highValue = valuesAccelerometer[2];
+        		lowValue = valuesAccelerometer[2];
+        		 while ((System.currentTimeMillis() - startedAt) < 100) {
+        			 if(valuesAccelerometer[2]> highValue)
+         				{
+        				 highValue = valuesAccelerometer[2];
+        				 Log.d("high", Float.toString(highValue));
+         				}
+         			else if(valuesAccelerometer[2] < lowValue)
+         			{
+         				lowValue = valuesAccelerometer[2];
+         				Log.d("low", Float.toString(lowValue));
+         			}
+         			if(highValue - lowValue > 3)
+         			{
+         				if(valuesAccelerometer[2] == highValue)
+         					collision = ai.isCollision(lowValue, highValue);
+         				else
+         					collision = ai.isCollision(highValue, lowValue);
+         				Log.d("3", Float.toString(lowValue)+ Float.toString(highValue));
+         				//interpretAccelerometer("8.00,0.00");
+         				break;
+         			}
+        		}
+        			
+        	}
+        };
+        timer.scheduleAtFixedRate(timertask,0,1000);
+       // timer.
     }
 
     private void setupBluetoothConnection() {
@@ -270,7 +332,8 @@ public class BluetoothActivity extends Activity {
     public synchronized void onPause() {
         super.onPause();
         if(D) Log.e(TAG, "- ON PAUSE -");
-     //   mSensorManager.unregisterListener(listener);
+        mSensorManager.unregisterListener(listener);
+        timer.cancel();
     }
 
     @Override
@@ -436,17 +499,22 @@ public class BluetoothActivity extends Activity {
                 	state = 0;
                     ssControls = new ServerSocket(CONTROLSERVERPORT);
                 	publishProgress();
-                	
+                	BluetoothSocket bluetooth = new BluetoothSocket();
+                	bluetooth.execute();
                     Socket client = ssControls.accept();
                     BufferedReader input = new BufferedReader(new InputStreamReader(client.getInputStream()));
-                    PrintWriter output = new PrintWriter(client.getOutputStream(), true);
                 	publishProgress();
                 	
                     while (!isCancelled) {
+                    	if(isCancelled())
+                    	{
+                    		bluetooth.cancel(true);
+                    		break;
+                    	}
                     	state = 1;
                     	publishProgress();
-                        bacon = input.readLine();
-                        output.println();
+                      bacon = input.readLine();
+                  //  Log.d("command", bacon);
                     }
                     
                     input.close();
@@ -488,11 +556,66 @@ public class BluetoothActivity extends Activity {
 					wifiStatus.setText("Not Connected");
 					break;
 			}
-			interpretAccelerometer(bacon);
+			if(bacon.substring(0,2).equals("AI"))
+			{
+				Log.d("route to parse", bacon);
+				parseRoute(bacon);
+				
+			}
+			else
+			{
+				current = interpretAccelerometer(bacon);
+				sendMessage(current);
+			}
+			
 			//sendMessage(bacon);
 			receivedMessage.setText(bacon);
 		}
     }
+    
+    class BluetoothSocket extends AsyncTask<Void, Void, Void>{
+  		InetAddress serverAddr;
+    	String accelReadings = "hi";
+    	boolean run =true;
+  		@Override
+  		protected Void doInBackground(Void... params) {
+  			try {
+  	      ServerSocket sendSocket = new ServerSocket(8888); 
+  	      Log.d("before", "hi");
+  	      Socket client = sendSocket.accept();
+  	      Log.d("after", "bye");
+  	      PrintWriter output = new PrintWriter(client.getOutputStream(), true);
+  	     // BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+  	     while(run){
+  	    	 if(isCancelled())
+  	    	 {
+  	    		 run = false;
+  	    	 }
+  	    	// Log.d("while", "poop");
+  	    	 output.println(Float.toString(valuesAccelerometer[0])+ " " + Float.toString(valuesAccelerometer[1])+ " " + Float.toString(valuesAccelerometer[2]));
+  	    	 //Log.d("accel Reading", accelReadings);
+  	    	 publishProgress();
+  	    	 Thread.sleep(100);
+  	     }
+  	     output.close();
+  	     sendSocket.close();
+
+  	     
+  			}
+  			catch (Exception e) {
+  	      Log.e("ClientActivity", "S: Error", e);
+  	  }
+  					
+  			return null;
+  		}
+  		
+  		protected void onProgressUpdate(Void... values) {  
+  		
+       // if(accelReadings !=null)
+  			//	accelText.setText(accelReadings);
+  		}	
+  		
+  	}
     
     class AsyncStreamThread extends AsyncTask<Void, Void, Void> {
 
@@ -702,7 +825,7 @@ public class BluetoothActivity extends Activity {
 		}
 	}
     
-    private void interpretAccelerometer(String xy){
+    private String interpretAccelerometer(String xy){
     	String[] strArr = xy.split(",");
     	//sendMessage(strArr[0]);
     	//float x = Float.valueOf(strArr[0].trim()).floatValue();
@@ -769,8 +892,8 @@ public class BluetoothActivity extends Activity {
     			m=0;
     	}
     	
-    	String message = Integer.toString(m)+","+Integer.toString(ix)+","+Integer.toString(iy);
-    	sendMessage(message);
+    	return Integer.toString(m)+","+Integer.toString(ix)+","+Integer.toString(iy);
+    	//sendMessage(message);
     }
     
     private String getLocalIpAddress()
@@ -804,54 +927,111 @@ public class BluetoothActivity extends Activity {
 		previewRunning = false;
 		camera.release();
 		Intent intent = getIntent();
+		conThread.cancel(true);
 		finish();
 		startActivity(intent);
     }
-    /*
+    
+  	@Override
+  	public void onConfigurationChanged(Configuration newConfig){
+  		
+  	}
+    
     private SensorEventListener listener=new SensorEventListener() {
 		
-		@Override
-		public void onAccuracyChanged(Sensor sensor, int accuracy) {
+    	@Override
+    	public void onAccuracyChanged(Sensor sensor, int accuracy) {
 			// not used
 			
-		}
+    	}
 
-		@Override
-		public void onSensorChanged(SensorEvent event) {
-			if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-	            smoothed = LowPassFilter.filter(event.values, valuesAccelerometer);
-	            valuesAccelerometer[0] = smoothed[0];
-	            valuesAccelerometer[1] = smoothed[1];
-	            valuesAccelerometer[2] = smoothed[2];
-	        } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-	            smoothed = LowPassFilter.filter(event.values, valuesMagneticField);
-	            valuesMagneticField[0] = smoothed[0];
-	            valuesMagneticField[1] = smoothed[1];
-	            valuesMagneticField[2] = smoothed[2];
-	        }
-		  
-		 boolean success = SensorManager.getRotationMatrix(
-		      matrixR,
-		      matrixI,
-		      valuesAccelerometer,
-		      valuesMagneticField);
-		  
-		 if(success){
-		  SensorManager.getOrientation(matrixR, matrixValues);
-		   
-		  double azimuth = Math.toDegrees(matrixValues[0]);
-		  double pitch = Math.toDegrees(matrixValues[1]);
-		  double roll = Math.toDegrees(matrixValues[2]);
-		   if(azimuth < 0)
-			   azimuth += 360;
-		  readingAzimuth.setText("Azimuth: " + String.valueOf(azimuth));
-		//  readingPitch.setText("Pitch: " + String.valueOf(pitch));
-		//  readingRoll.setText("Roll: " + String.valueOf(roll));
-		   
-		 // myCompass.update(matrixValues[0]);
-		 }
-		  
+			@Override
+			public void onSensorChanged(SensorEvent event) {
+			   final float alpha = (float) 0.8;
+				if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+         // smoothed = LowPassFilter.filter(event.values, valuesAccelerometer);
+
+	          valuesAccelerometer[0] = event.values[0];
+	          valuesAccelerometer[1] = event.values[1];
+	          valuesAccelerometer[2] = event.values[2];
+				}
+	       else
+	      	 return;
+			}
+	};
+		
+		private void parseRoute(String routeData){
+			route = true;
+			routeData = routeData.substring(6);
+			String[] route =routeData.split("\\*");
+			Log.d("route[0]", route[0]);
+			String[] time = new String[route.length];
+			float [] routeTime = new float[route.length];
+			int [] routeTimeInt = new int[route.length];
+			for(int i = 0; i<route.length; i++)
+			{
+				int index = route[i].indexOf('~', 8);
+				time[i] = route[i].substring(index+1);
+				route[i] = route[i].substring(0,index);
+				Log.d("parsing route", route[i]);
+				Log.d("parsing time", time[i]);
+				routeTime[i] = Float.parseFloat(time[i]);
+				routeTime[i] *=1000;
+				routeTimeInt[i] = (int) routeTime[i];
+				//Log.d("ClientActivity", time[i]);
+			}
+			//sendRoute(route, routeTimeInt);
+			//routeThread routeToTravel = (routeThread) new routeThread().execute(new GatherData(route, routeTimeInt));
+			new routeThread().execute(new GatherData(route, routeTimeInt));
 		}
-	};*/
-    
-}
+		class routeThread extends AsyncTask<GatherData, String,Void> {
+
+			@Override
+			protected Void doInBackground(GatherData... gatherData) {
+				AI ai = new AI(gatherData[0].route, gatherData[0].time, current);
+				
+				for(int i = 0; i<gatherData[0].route.length; i++)
+				{
+					if(route)
+					{
+						//publishProgress(gatherData[0].route[i]);
+						
+						sendMessage(interpretAccelerometer(gatherData[0].route[i]));
+						try {
+							//Thread.
+							
+							Log.d("thread sleep time", Integer.toString(gatherData[0].time[i]));
+							Thread.sleep(gatherData[0].time[i]);
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
+					else
+						return null;
+					
+				}
+				//publishProgress("0.00,0.00");
+				sendMessage(interpretAccelerometer("0,0.00,0.00"));
+				return null;
+			}
+			@Override
+			protected void onProgressUpdate(String... route){
+				Log.d("OnProgress", route[0]);
+				//command = route[0];
+	        //    if(currentBot != null)
+	          //  	currentBot.setSend(true);
+			}	
+		};
+		
+		class GatherData{//to make sending data to routeThread easier
+			String[] route;
+			int[] time;
+			
+			GatherData(String[] r, int[] t){
+				route = r.clone();
+				time = t.clone();
+			}
+		};
+		
+  }  
