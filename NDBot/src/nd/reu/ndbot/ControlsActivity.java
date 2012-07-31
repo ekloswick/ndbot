@@ -3,7 +3,6 @@ package nd.reu.ndbot;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.Flushable;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.InetAddress;
@@ -12,13 +11,10 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 
-import android.R.layout;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.Dialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -34,7 +30,6 @@ import android.hardware.SensorManager;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -45,7 +40,6 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckedTextView;
@@ -63,9 +57,7 @@ public class ControlsActivity extends Activity
     DataOutputStream output;
     private String command = "";
     private String serverIpAddress = null;// Im changing this
-    private boolean connected = false;
-    private ArrayList <Boolean> sendData = new ArrayList<Boolean>();
-   // private ArrayList <Boolean> connections = new ArrayList<Boolean>();
+    // private ArrayList <Boolean> connections = new ArrayList<Boolean>();
     private ArrayList <AsyncTask<Void, Void, Void> > connections = new ArrayList<AsyncTask<Void, Void, Void> >();
     ArrayAdapter<String> arrayAdapter; 
     AsyncThread currentBot;
@@ -116,7 +108,7 @@ public class ControlsActivity extends Activity
 	public void onStart() {
 		super.onStart();
         enableButtons();
-		wifiManager = (WifiManager) this.getSystemService(this.WIFI_SERVICE);
+		wifiManager = (WifiManager) this.getSystemService(Context.WIFI_SERVICE);
         if (!wifiManager.isWifiEnabled()) {
         	toast("Enabling Wifi...");
         	wifiManager.setWifiEnabled(true);
@@ -176,7 +168,6 @@ public class ControlsActivity extends Activity
                 BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 state = 0;
                 bluetooth = new BluetoothSocket();
-               // connected = socket.isConnected();
                 publishProgress();
                 bluetooth.execute();
                 while (!connections.isEmpty()) {
@@ -558,13 +549,6 @@ public class ControlsActivity extends Activity
       {
        	enableButtons();
       }
-		/*if(getResources().getConfiguration().orientation == 1)
-			setContentView(R.layout.controlsa);
-		else
-			setContentView(R.layout.controlsl);
-		*/
-	
-
 	}
 	
 	protected AlertDialog onCreateDialog(int id){
@@ -595,7 +579,6 @@ public class ControlsActivity extends Activity
                      	connections.add(blah);
                      	//arrayAdapter.add((Integer.toString(connections.size()-1)));
                      	((AsyncThread) connections.get(connections.size()-1)).setSend(false);
-                     	//sendData.add(new Boolean(false));
                      	if(connections.size() == 1)
                      		currentBot = blah;
                      		//((AsyncThread) connections.get(0)).setActive(true);
@@ -630,11 +613,18 @@ public class ControlsActivity extends Activity
 						serverIpAddress = tempString.substring(index+1).trim();
 						Log.d("ip", serverIpAddress);
 						AsyncThread blah = new AsyncThread();
-           	connections.add(blah);
-           	blah.setSend(false);
-           	if(connections.size() == 1)
-           		currentBot = blah;
-           	blah.execute();
+			           	connections.add(blah);
+			           	blah.setSend(false);
+			           	if(connections.size() == 1)
+			           		currentBot = blah;
+			           	blah.execute();
+			           	
+			           	if (accel && !cameraConnected) {
+			         		AsyncGetStreamThread cameraThread = new AsyncGetStreamThread();
+			         		cameraThread.execute();
+			         		cameraConnected = true;
+			         	}
+			           	
 						alertBot.dismiss();
 					}
 					
@@ -691,64 +681,6 @@ public class ControlsActivity extends Activity
 	        	  alert.dismiss();
 	       	 } });
 	        return alert;
-		/*case 2:
-			LayoutInflater factory3 = LayoutInflater.from(this);
-	         final View view3 = factory3.inflate(R.layout.alert_dialog_route_list, null);
-			 SharedPreferences sharedPreferences = getSharedPreferences("myPrefs",MODE_PRIVATE);
-			 final  Map<String, ?> map = sharedPreferences.getAll();
-			    //toast(Integer.toString(map.size()));
-			   // Log.d("map size", Integer.toString(map.size()));
-			  //  Log.d("one key", (String) map.get("y"));
-			   Set<String> set =  map.keySet();
-			   String[] keys = new String[set.size()];
-			   keys = (String[]) set.toArray(keys);	
-			   ArrayAdapter<String> routeAdapter = new ArrayAdapter<String>(this, R.layout.alert_dialog_route_text,keys); 
-			   final ListView routeList = (ListView) view3.findViewById(R.id.routeListView);
-			   routeList.setAdapter(routeAdapter);
-			   AlertDialog.Builder builder2 = new AlertDialog.Builder(ControlsActivity.this);
-
-	             builder2.setIcon(R.drawable.alert_dialog_icon);
-	             builder2.setTitle("Choose a Route");
-	             builder2.setView(view3).setNegativeButton("Back", new DialogInterface.OnClickListener() {
-	                 public void onClick(DialogInterface dialog, int whichButton) {
-	                     /* User clicked cancel cancels automatically 
-	                 }
-	             });
-	 	     builder2.setPositiveButton("Edit Route", new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-						
-						routeList.setOnItemClickListener(new OnItemClickListener(){
-							@Override
-							public void onItemClick(AdapterView<?> arg0, View arg1, int arg2, long arg3){ //send to Route activity
-								TextView tv = (TextView) arg1;
-								Intent intent = new Intent(arg0.getContext(), PlanRouteActivity.class);
-								intent.putExtra("name", tv.getText().toString());
-								startActivity(intent);
-							}
-						});
-					}
-				});
-	         routeList.setOnItemSelectedListener(new OnItemSelectedListener() {
-
-				@Override
-				public void onItemSelected(AdapterView<?> arg0, View arg1,int arg2, long arg3) {
-					 TextView tv = (TextView) arg1;
-	        		 parseRoute((String) map.get(tv.getText().toString()));
-					
-				}
-
-				@Override
-				public void onNothingSelected(AdapterView<?> arg0) {
-					
-				} });
-	 	      final  AlertDialog alert2 = builder2.create();
-	        return alert2;
-			    
-			
-			
-			
-		}*/
 		}
 		return null;
     }
@@ -817,6 +749,7 @@ public class ControlsActivity extends Activity
                     	// cleanup
                     	temporary = new byte[bufferSize];
                     	publishProgress();
+                    	//frameToGet = new byte[bufferSize];
                     } catch (Exception e) {
                         Log.e("ClientActivity", "S: Error", e);
                         state = 0;
@@ -864,12 +797,12 @@ public class ControlsActivity extends Activity
 	            	try {
 		            	imageToShow = BitmapFactory.decodeByteArray(frameToGet, 0, frameToGet.length);
 		            } catch (Exception e) {
-		            	easel.drawRGB(111, 70, 150);
+		            	//easel.drawRGB(111, 70, 150);
 		            }
 		        	
 		            if (imageToShow != null) {
-		            	if (surfaceWidth > 0)
-		            		imageToShow = Bitmap.createScaledBitmap(imageToShow, surfaceWidth, surfaceHeight, false);
+		            	//if (surfaceWidth > 0)
+		            	//	imageToShow = Bitmap.createScaledBitmap(imageToShow, surfaceWidth, surfaceHeight, false);
 		                
 		            	//Log.d("onDraw", "surfaceWidth = " + surfaceWidth);
 		            	//Log.d("onDraw", "imageToShow is not null");
@@ -880,8 +813,6 @@ public class ControlsActivity extends Activity
 	            
 	            if (easel != null)
 	            	surfaceHolder.unlockCanvasAndPost(easel);
-	            
-				frameToGet = new byte[bufferSize];
 			}
 		}
     }

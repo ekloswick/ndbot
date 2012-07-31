@@ -83,12 +83,13 @@ public class BluetoothActivity extends Activity {
     private SurfaceHolder surfaceHolder;
     private boolean route = true;
     private boolean previewRunning;
-    private byte[] frameToSend = null;
+    private int bufferSize = 4096;
+    private byte[] frameToSend = new byte[bufferSize];
     private SurfaceView viewSurface;
     
     // Debugging
     private static final String TAG = "NDBotBluetooth";
-    private static final boolean D = true;
+    private static final boolean D = false;
 
     // Message types sent from the BluetoothChatService Handler
     public static final int MESSAGE_STATE_CHANGE = 1;
@@ -107,7 +108,6 @@ public class BluetoothActivity extends Activity {
 
     // Layout Views
     private TextView mTitle;
-    private TextView bluetoothMessage;
     private Button mWifiButton;
     private Button mBluetoothButton;
     private Button mResetButton;
@@ -141,10 +141,12 @@ public class BluetoothActivity extends Activity {
     private float[] matrixI;
     private float[] matrixValues;
     private static float smoothed[] = new float[3];
-    TextView accel, readingAzimuth, readingPitch, readingRoll;
+    TextView readingAzimuth, readingPitch, readingRoll;
     
     //Route following
     AsyncControlsThread conThread;
+    AsyncStreamThread strThread;
+    AsyncCameraThread camThread;
   	private Timer timer;
   	
   	//AI
@@ -153,8 +155,6 @@ public class BluetoothActivity extends Activity {
     String override;
     private boolean collision = false;
     
-    AsyncStreamThread strThread;
-    AsyncCameraThread camThread;
   	
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -170,7 +170,6 @@ public class BluetoothActivity extends Activity {
         mTitle = (TextView) findViewById(R.id.title_left_text);
         mTitle.setText(R.string.bluetooth_string);
         mTitle = (TextView) findViewById(R.id.title_right_text);
-        bluetoothMessage = (TextView) findViewById(R.id.bluetoothMessage_id);
         
         wifiStatus = (TextView) findViewById(R.id.wifiStatus_id);
         bluetoothStatus = (TextView) findViewById(R.id.bluetoothStatus_id);
@@ -185,7 +184,6 @@ public class BluetoothActivity extends Activity {
             finish();
             return;
         }
-        accel = (TextView) findViewById(R.id.sensor);
         ai = new AI();	
 		 
 		 
@@ -407,16 +405,6 @@ public class BluetoothActivity extends Activity {
                 }
 
                 break;
-            case MESSAGE_READ:
-                byte[] readBuf = (byte[]) msg.obj;
-                // construct a string from the valid bytes in the buffer
-               // String readMessage = new String(readBuf, 0, msg.arg1);
-                String readMessage = new String(readBuf);
-               // bluetoothMessage.setText("");
-                bluetoothMessage.setText(readMessage);
-                //Toast.makeText(getApplicationContext(), readMessage,
-                //        Toast.LENGTH_SHORT).show();
-                break;
             case MESSAGE_DEVICE_NAME:
                 // save the connected device's name
                 mConnectedDeviceName = msg.getData().getString(DEVICE_NAME);
@@ -620,7 +608,7 @@ public class BluetoothActivity extends Activity {
     class AsyncStreamThread extends AsyncTask<Void, Void, Void> {
 
     	int state = 0;
-    	String bacon = "";
+    	//String bacon = "";
     	
 		@Override
 		protected Void doInBackground(Void... params) {
@@ -638,7 +626,7 @@ public class BluetoothActivity extends Activity {
                     while (!isCancelled) {                    	
                     	if (frameToSend != null && frameToSend.length > 0) {
                     		// write the number of bytes to read
-                    		bacon = "Length is " + frameToSend.length;
+                    		//bacon = "Length is " + frameToSend.length;
                     		dos.writeInt(frameToSend.length);
                     		dos.flush();
                     		
@@ -649,10 +637,7 @@ public class BluetoothActivity extends Activity {
                     		if (frameToSend != null) {
                     			dos.write(frameToSend, 0, frameToSend.length);
                     			dos.flush();
-                    		}/* else {
-                    			dos.write(null);
-                    			dos.flush();
-                    		}*/
+                    		}
                     	
                     		// get second handshake
                     		dis.readInt();
@@ -752,7 +737,6 @@ public class BluetoothActivity extends Activity {
 			public void onPreviewFrame(byte[] data, Camera camera)
 			{
 				state = 3;
-///////////////////		
 				if ( camera != null && isCancelled == false)
 				{
                     Camera.Parameters parameters = camera.getParameters();
@@ -782,7 +766,6 @@ public class BluetoothActivity extends Activity {
                 {
                     Log.e( getLocalClassName(), "Camera is null" );
                 }
-///////////////////
 			}
 		};
 		
@@ -927,7 +910,15 @@ public class BluetoothActivity extends Activity {
 		previewRunning = false;
 		camera.release();
 		Intent intent = getIntent();
-		conThread.cancel(true);
+		if (conThread.getStatus() == AsyncTask.Status.RUNNING)
+			conThread.cancel(true);
+		
+		if (strThread.getStatus() == AsyncTask.Status.RUNNING)
+			strThread.cancel(true);
+		
+		if (camThread.getStatus() == AsyncTask.Status.RUNNING)
+			camThread.cancel(true);
+		
 		finish();
 		startActivity(intent);
     }
