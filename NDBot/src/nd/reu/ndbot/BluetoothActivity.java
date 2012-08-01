@@ -71,15 +71,22 @@ public class BluetoothActivity extends Activity {
     public static String SERVERIP = null;//"10.24.189.99";
     public static final int CONTROLSERVERPORT = 8080;
     public static final int STREAMSERVERPORT = 8888;
+    public static final int BTSERVERPORT = 8008;
     private ServerSocket ssControls, ssStream;
-    public Boolean isCancelled = false;
+    //public Boolean isCancelled = false;
+    public Boolean isBTCancelled = false;
+    public Boolean isStreamCancelled = false;
+    public Boolean isCameraCancelled = false;
+    public Boolean isControlsCancelled = false;
+    
     DataInputStream input;
     DataOutputStream output;
+    
     private TextView wifiStatus;
     private TextView bluetoothStatus;
     private TextView receivedMessage;
     private TextView compassReading;
-    private SurfaceView viewToSend;
+    
     private SurfaceHolder surfaceHolder;
     private boolean route = true;
     private boolean previewRunning;
@@ -155,11 +162,9 @@ public class BluetoothActivity extends Activity {
     String override;
     private boolean collision = false;
     
-  	
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if(D) Log.e(TAG, "+++ ON CREATE +++");
         
         // Set up the window layout
         requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
@@ -184,21 +189,21 @@ public class BluetoothActivity extends Activity {
             finish();
             return;
         }
+        
         ai = new AI();	
 		 
-		 
-	  mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
-	  sensorAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-	  sensorMagneticField = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-	    
-	  valuesAccelerometer = new float[3];
-	  valuesMagneticField = new float[3];
-	  gravity = new float[3];
-	  linear_acceleration = new float[3];
-	  
-	  matrixR = new float[9];
-	  matrixI = new float[9];
-	  matrixValues = new float[3];
+		mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+		sensorAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		sensorMagneticField = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		    
+		valuesAccelerometer = new float[3];
+		valuesMagneticField = new float[3];
+		gravity = new float[3];
+		linear_acceleration = new float[3];
+		  
+		matrixR = new float[9];
+		matrixI = new float[9];
+		matrixValues = new float[3];
         
        // Intent intent=new Intent("CompassService");
        // startService(intent);
@@ -207,9 +212,6 @@ public class BluetoothActivity extends Activity {
     @Override
     public void onStart() {
         super.onStart();
-        if(D) Log.e(TAG, "++ ON START ++");
-
-        //new AsyncCameraThread().execute();
         
         mWifiButton = (Button) findViewById(R.id.wifiButton_id);
         mWifiButton.setOnClickListener(new OnClickListener() {
@@ -235,7 +237,10 @@ public class BluetoothActivity extends Activity {
         mResetButton = (Button) findViewById(R.id.resetButton_id);
         mResetButton.setOnClickListener(new OnClickListener() {
             public void onClick(View v) {
-            	isCancelled = true;
+                isBTCancelled = true;
+                isStreamCancelled = true;
+                isCameraCancelled = true;
+                isControlsCancelled = true;
             	restartActivity();
             	mWifiButton.setEnabled(true);
             }
@@ -266,7 +271,6 @@ public class BluetoothActivity extends Activity {
     @Override
     public synchronized void onResume() {
         super.onResume();
-        if(D) Log.e(TAG, "+ ON RESUME +");
 
         // Performing this check in onResume() covers the case in which BT was
         // not enabled during onStart(), so we were paused to enable it...
@@ -313,18 +317,16 @@ public class BluetoothActivity extends Activity {
         	}
         };
         timer.scheduleAtFixedRate(timertask,0,1000);
-       // timer.
     }
 
     private void setupBluetoothConnection() {
-        //Log.d(TAG, "setupBluetoothConnection()");
-
         // Initialize the BluetoothChatService to perform bluetooth connections
         mChatService = new BluetoothActivityService(this, mHandler);
 
         // Initialize the buffer for outgoing messages
         mOutStringBuffer = new StringBuffer("");
     }
+    
 
     @Override
     public synchronized void onPause() {
@@ -334,22 +336,26 @@ public class BluetoothActivity extends Activity {
         timer.cancel();
     }
 
+    
     @Override
     public void onStop() {
         super.onStop();
-        if(D) Log.e(TAG, "-- ON STOP --");
+        isBTCancelled = true;
+        isStreamCancelled = true;
+        isCameraCancelled = true;
+        isControlsCancelled = true;
     }
 
+    
     @Override
     public void onDestroy() {
         super.onDestroy();
-        // Stop the Bluetooth chat services
+        // Stop the Bluetooth service
         if (mChatService != null) mChatService.stop();
-        if(D) Log.e(TAG, "--- ON DESTROY ---");
     }
+    
 
     private void ensureDiscoverable() {
-        //if(D) Log.d(TAG, "ensure discoverable");
         if (mBluetoothAdapter.getScanMode() !=
             BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
             Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
@@ -357,6 +363,7 @@ public class BluetoothActivity extends Activity {
             startActivity(discoverableIntent);
         }
     }
+    
 
     private void sendMessage(String message) {
         // Check that we're actually connected before trying anything
@@ -371,15 +378,11 @@ public class BluetoothActivity extends Activity {
             // Get the message bytes and tell the BluetoothChatService to write
             byte[] send = message.getBytes();
             mChatService.write(send);
-          //  Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-          //  mChatService.
             // Reset out string buffer to zero and clear the edit text field
             mOutStringBuffer.setLength(0);
-           // mOutEditText.setText(mOutStringBuffer);
         }
     }
-
-    // The Handler that gets information back from the BluetoothActivityService
+    
     private final Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -418,6 +421,7 @@ public class BluetoothActivity extends Activity {
             }
         }
     };
+    
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         //if(D) Log.d(TAG, "onActivityResult " + resultCode);
@@ -447,13 +451,15 @@ public class BluetoothActivity extends Activity {
         }
     }
 
-    @Override
+    
+    @Override 
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.option_menu, menu);
         return true;
     }
 
+   
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
@@ -475,6 +481,7 @@ public class BluetoothActivity extends Activity {
         startActivityForResult(serverIntent, REQUEST_CONNECT_DEVICE);
     }
 
+    
     class AsyncControlsThread extends AsyncTask<Void, Void, Void> {
     	
     	String bacon = "0,0";
@@ -493,7 +500,7 @@ public class BluetoothActivity extends Activity {
                     BufferedReader input = new BufferedReader(new InputStreamReader(client.getInputStream()));
                 	publishProgress();
                 	
-                    while (!isCancelled) {
+                    while (!isControlsCancelled) {
                     	if(isCancelled())
                     	{
                     		bluetooth.cancel(true);
@@ -502,7 +509,6 @@ public class BluetoothActivity extends Activity {
                     	state = 1;
                     	publishProgress();
                       bacon = input.readLine();
-                  //  Log.d("command", bacon);
                     }
                     
                     input.close();
@@ -568,16 +574,16 @@ public class BluetoothActivity extends Activity {
   		@Override
   		protected Void doInBackground(Void... params) {
   			try {
-  	      ServerSocket sendSocket = new ServerSocket(8888); 
-  	      Log.d("before", "hi");
+  	      ServerSocket sendSocket = new ServerSocket(BTSERVERPORT); 
+  	      //Log.d("before", "hi");
   	      Socket client = sendSocket.accept();
-  	      Log.d("after", "bye");
+  	      //Log.d("after", "bye");
   	      PrintWriter output = new PrintWriter(client.getOutputStream(), true);
   	     // BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-  	     while(run){
+  	     while(!isBTCancelled){
   	    	 if(isCancelled())
   	    	 {
-  	    		 run = false;
+  	    		 break;
   	    	 }
   	    	// Log.d("while", "poop");
   	    	 output.println(Float.toString(valuesAccelerometer[0])+ " " + Float.toString(valuesAccelerometer[1])+ " " + Float.toString(valuesAccelerometer[2]));
@@ -608,7 +614,6 @@ public class BluetoothActivity extends Activity {
     class AsyncStreamThread extends AsyncTask<Void, Void, Void> {
 
     	int state = 0;
-    	//String bacon = "";
     	
 		@Override
 		protected Void doInBackground(Void... params) {
@@ -623,10 +628,9 @@ public class BluetoothActivity extends Activity {
                 	state = 1;
                 	publishProgress();
                 	
-                    while (!isCancelled) {                    	
+                    while (!isStreamCancelled) {                    	
                     	if (frameToSend != null && frameToSend.length > 0) {
                     		// write the number of bytes to read
-                    		//bacon = "Length is " + frameToSend.length;
                     		dos.writeInt(frameToSend.length);
                     		dos.flush();
                     		
@@ -652,7 +656,6 @@ public class BluetoothActivity extends Activity {
                     dis.close();
                     client.close();
                     ssStream.close();
-                    //Log.d("END OF PROGRAM", "Everything's closed");
                 } else {
                 	state = 3;
                 	publishProgress();
@@ -737,7 +740,7 @@ public class BluetoothActivity extends Activity {
 			public void onPreviewFrame(byte[] data, Camera camera)
 			{
 				state = 3;
-				if ( camera != null && isCancelled == false)
+				if ( camera != null && isCameraCancelled == false)
 				{
                     Camera.Parameters parameters = camera.getParameters();
                     int imageFormat = parameters.getPreviewFormat();
@@ -879,6 +882,7 @@ public class BluetoothActivity extends Activity {
     	//sendMessage(message);
     }
     
+    
     private String getLocalIpAddress()
     {
            try
@@ -900,24 +904,34 @@ public class BluetoothActivity extends Activity {
                 return "Unknown";
            }
     }
+    
 
     public void toast(String text) {
     	Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
     
+    
     public void restartActivity() {
+    	try
+		{
+    		if (!ssControls.isClosed())
+    			ssControls.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+    	
 		camera.stopPreview();
 		previewRunning = false;
 		camera.release();
 		Intent intent = getIntent();
-		if (conThread.getStatus() == AsyncTask.Status.RUNNING)
+		/*if (conThread.getStatus() == AsyncTask.Status.RUNNING)
 			conThread.cancel(true);
 		
 		if (strThread.getStatus() == AsyncTask.Status.RUNNING)
 			strThread.cancel(true);
 		
 		if (camThread.getStatus() == AsyncTask.Status.RUNNING)
-			camThread.cancel(true);
+			camThread.cancel(true);*/
 		
 		finish();
 		startActivity(intent);
@@ -925,8 +939,9 @@ public class BluetoothActivity extends Activity {
     
   	@Override
   	public void onConfigurationChanged(Configuration newConfig){
-  		
+  		super.onConfigurationChanged(newConfig);
   	}
+  	
     
     private SensorEventListener listener=new SensorEventListener() {
 		
@@ -950,79 +965,80 @@ public class BluetoothActivity extends Activity {
 	      	 return;
 			}
 	};
+	
 		
-		private void parseRoute(String routeData){
-			route = true;
-			routeData = routeData.substring(6);
-			String[] route =routeData.split("\\*");
-			Log.d("route[0]", route[0]);
-			String[] time = new String[route.length];
-			float [] routeTime = new float[route.length];
-			int [] routeTimeInt = new int[route.length];
-			for(int i = 0; i<route.length; i++)
-			{
-				int index = route[i].indexOf('~', 8);
-				time[i] = route[i].substring(index+1);
-				route[i] = route[i].substring(0,index);
-				Log.d("parsing route", route[i]);
-				Log.d("parsing time", time[i]);
-				routeTime[i] = Float.parseFloat(time[i]);
-				routeTime[i] *=1000;
-				routeTimeInt[i] = (int) routeTime[i];
-				//Log.d("ClientActivity", time[i]);
-			}
-			//sendRoute(route, routeTimeInt);
-			//routeThread routeToTravel = (routeThread) new routeThread().execute(new GatherData(route, routeTimeInt));
-			new routeThread().execute(new GatherData(route, routeTimeInt));
+	private void parseRoute(String routeData){
+		route = true;
+		routeData = routeData.substring(6);
+		String[] route =routeData.split("\\*");
+		Log.d("route[0]", route[0]);
+		String[] time = new String[route.length];
+		float [] routeTime = new float[route.length];
+		int [] routeTimeInt = new int[route.length];
+		for(int i = 0; i<route.length; i++)
+		{
+			int index = route[i].indexOf('~', 8);
+			time[i] = route[i].substring(index+1);
+			route[i] = route[i].substring(0,index);
+			Log.d("parsing route", route[i]);
+			Log.d("parsing time", time[i]);
+			routeTime[i] = Float.parseFloat(time[i]);
+			routeTime[i] *=1000;
+			routeTimeInt[i] = (int) routeTime[i];
+			//Log.d("ClientActivity", time[i]);
 		}
-		class routeThread extends AsyncTask<GatherData, String,Void> {
+		//sendRoute(route, routeTimeInt);
+		//routeThread routeToTravel = (routeThread) new routeThread().execute(new GatherData(route, routeTimeInt));
+		new routeThread().execute(new GatherData(route, routeTimeInt));
+	}
+	
+	class routeThread extends AsyncTask<GatherData, String,Void> {
 
-			@Override
-			protected Void doInBackground(GatherData... gatherData) {
-				AI ai = new AI(gatherData[0].route, gatherData[0].time, current);
-				
-				for(int i = 0; i<gatherData[0].route.length; i++)
-				{
-					if(route)
-					{
-						//publishProgress(gatherData[0].route[i]);
-						
-						sendMessage(interpretAccelerometer(gatherData[0].route[i]));
-						try {
-							//Thread.
-							
-							Log.d("thread sleep time", Integer.toString(gatherData[0].time[i]));
-							Thread.sleep(gatherData[0].time[i]);
-						} catch (InterruptedException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
-						}
-					}
-					else
-						return null;
-					
-				}
-				//publishProgress("0.00,0.00");
-				sendMessage(interpretAccelerometer("0,0.00,0.00"));
-				return null;
-			}
-			@Override
-			protected void onProgressUpdate(String... route){
-				Log.d("OnProgress", route[0]);
-				//command = route[0];
-	        //    if(currentBot != null)
-	          //  	currentBot.setSend(true);
-			}	
-		};
-		
-		class GatherData{//to make sending data to routeThread easier
-			String[] route;
-			int[] time;
+		@Override
+		protected Void doInBackground(GatherData... gatherData) {
+			AI ai = new AI(gatherData[0].route, gatherData[0].time, current);
 			
-			GatherData(String[] r, int[] t){
-				route = r.clone();
-				time = t.clone();
+			for(int i = 0; i<gatherData[0].route.length; i++)
+			{
+				if(route)
+				{
+					//publishProgress(gatherData[0].route[i]);
+					
+					sendMessage(interpretAccelerometer(gatherData[0].route[i]));
+					try {
+						//Thread.
+						
+						Log.d("thread sleep time", Integer.toString(gatherData[0].time[i]));
+						Thread.sleep(gatherData[0].time[i]);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+				else
+					return null;
+				
 			}
-		};
+			//publishProgress("0.00,0.00");
+			sendMessage(interpretAccelerometer("0,0.00,0.00"));
+			return null;
+		}
+		@Override
+		protected void onProgressUpdate(String... route){
+			Log.d("OnProgress", route[0]);
+			//command = route[0];
+        //    if(currentBot != null)
+          //  	currentBot.setSend(true);
+		}	
+	};
 		
-  }  
+	class GatherData {//to make sending data to routeThread easier
+		String[] route;
+		int[] time;
+		
+		GatherData(String[] r, int[] t){
+			route = r.clone();
+			time = t.clone();
+		}
+	};
+}  
