@@ -56,15 +56,16 @@ public class ControlsActivity extends Activity
     DataInputStream input;
     DataOutputStream output;
     private String command = "";
-    private String serverIpAddress = null;// Im changing this
-    // private ArrayList <Boolean> connections = new ArrayList<Boolean>();
+    private String serverIpAddress = null;
     private ArrayList <AsyncTask<Void, Void, Void> > connections = new ArrayList<AsyncTask<Void, Void, Void> >();
     ArrayAdapter<String> arrayAdapter; 
     AsyncThread currentBot;
     int bufferSize = 4096;
     private boolean cameraConnected = false;
     private byte[] frameToGet = new byte[bufferSize];
+    public static final int COMMANDPORT = 8080;
     public static final int STREAMSERVERPORT = 8888;
+    public static final int BLUETOOTHPORT = 8889;
     int surfaceWidth, surfaceHeight;
     
     private boolean accel = false;
@@ -96,6 +97,10 @@ public class ControlsActivity extends Activity
     Sensor mAccelerometer;
     private float mSensorX;
     private float mSensorY;
+    
+    //sockets
+    Socket Csocket;
+    Socket Bsocket;
 	
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -116,7 +121,6 @@ public class ControlsActivity extends Activity
 		
 		wifiStatus = (TextView) findViewById(R.id.wifiConnected_id);
 		accelText = (TextView) findViewById(R.id.bot_accel_id);
-        toast("create wifi button");
     }
 	
 	private SensorEventListener listener=new SensorEventListener() {
@@ -163,9 +167,9 @@ public class ControlsActivity extends Activity
 			try {
                 serverAddr = InetAddress.getByName(serverIpAddress);
                 //Log.d("ClientActivity", "C: Connecting...");
-                Socket socket = new Socket(serverAddr, 8080);
-                PrintWriter output = new PrintWriter(socket.getOutputStream());
-                BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                Csocket = new Socket(serverAddr, COMMANDPORT);
+                PrintWriter output = new PrintWriter(Csocket.getOutputStream());
+                BufferedReader input = new BufferedReader(new InputStreamReader(Csocket.getInputStream()));
                 state = 0;
                 bluetooth = new BluetoothSocket();
                 publishProgress();
@@ -200,7 +204,7 @@ public class ControlsActivity extends Activity
                     }
                 }
                 
-                socket.close();
+                Csocket.close();
                 //Log.d("ClientActivity", "C: Closed.");
             } catch (Exception e) {
                 //Log.e("ClientActivity", "C: Error", e);
@@ -256,9 +260,9 @@ public class ControlsActivity extends Activity
 			try {
 				Log.d("inBluetooth", accelReadings);
 	      serverAddr = InetAddress.getByName(serverIpAddress);
-	      Socket socket = new Socket(serverAddr, 8888);
+	      Bsocket = new Socket(serverAddr, BLUETOOTHPORT);
 	     // PrintWriter output = new PrintWriter(socket.getOutputStream());
-	      BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+	      BufferedReader input = new BufferedReader(new InputStreamReader(Bsocket.getInputStream()));
 	     while(run){
 	    	 if(isCancelled())
 	    		 break;
@@ -268,7 +272,7 @@ public class ControlsActivity extends Activity
 	    	 publishProgress();
 	    	 Thread.sleep(100);
 	     }
-	     socket.close();
+	     Bsocket.close();
 	     input.close();
 	     
 			}
@@ -466,9 +470,6 @@ public class ControlsActivity extends Activity
 		mTurnRightButton.setEnabled(true);
 		mTurnLeftButton.setEnabled(true);
 		mReverseButton.setEnabled(true);
-		
-
-		toast("enable Buttons");
 	       
 	}
 	
@@ -498,18 +499,15 @@ public class ControlsActivity extends Activity
 		mTurnLeftButton = null;
 		mReverseButton = null;
 		
-		toast("disable buttons");
 	}
 	
 	public void enableAccel(){
 		accel = true;
-		//setContentView(R.layout.controlsa);
 		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 		setContentView(R.layout.controlsb);
 		wifiStatus = (TextView) findViewById(R.id.wifiConnected_id);
 		createAccel();
 		mSensorManager.registerListener(listener, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
-		toast("enable Accel");
 
 		videoStream = (SurfaceView) findViewById(R.id.surfaceView_id);
         surfaceHolder = videoStream.getHolder();
@@ -538,6 +536,10 @@ public class ControlsActivity extends Activity
 		if(mSensorManager != null)
 			mSensorManager.unregisterListener(listener);
 		super.onStop();
+		
+		
+		
+		
 	}
 	
 	@Override
@@ -553,7 +555,7 @@ public class ControlsActivity extends Activity
 	
 	protected AlertDialog onCreateDialog(int id){
 		switch(id){
-			case 0:
+			case 0: //creates alert dialog for connecting to another phone
 				LayoutInflater factory = LayoutInflater.from(this);
 				final View textEntryView = factory.inflate(R.layout.alert_dialog_text_entry, null);
 				final SharedPreferences sharedPreferences = getSharedPreferences("previousBots",MODE_PRIVATE);
@@ -625,38 +627,34 @@ public class ControlsActivity extends Activity
 			         		cameraConnected = true;
 			         	}
 			           	
+           	if (accel && !cameraConnected) {
+           		AsyncGetStreamThread cameraThread = new AsyncGetStreamThread();
+           		cameraThread.execute();
+           		cameraConnected = true;
+           	}
 						alertBot.dismiss();
 					}
 					
 				});
 				return alertBot;
          
-		case 1:
+		case 1: //switches control
 			LayoutInflater factory2 = LayoutInflater.from(this);
 	         final View view = factory2.inflate(R.layout.alert_dialog_2, null);
-	         //((ListView) listView).setAdapter(arrayAdapter);
-	       //  TextView current = (TextView) view.findViewById(R.id.currentBot);
-	        // for(int i = 0; i < connections.size(); i++)
-	        	// if(connections)
-	       //  int currentIndex =-1;
 	         arrayAdapter =  new ArrayAdapter<String>(this, R.layout.alert_dialog_list_text_view);
+	         final TextView text = (TextView) view.findViewById(R.id.currentBotText);
 	         if(currentBot != null)
 	         {
 		         for(int i = 0; i <connections.size(); i++)
 		         {
-		        	 arrayAdapter.add((Integer.toString(i))+" "+((AsyncThread) connections.get(i)).getServerAddr());
-		        	 //if(((AsyncThread) connections.get(i)).getServerAddr().equals(currentBot.getServerAddr()))
-		        	// {
-		        		 TextView text = (TextView) view.findViewById(R.id.currentBotText);
-		        		 text.setText(currentBot.getServerAddr());
-		        	// }
-		        	 //Log.d("currentIndex", Integer.toString(currentIndex));
+		        	 arrayAdapter.add((Integer.toString(i))+" "+((AsyncThread) connections.get(i)).getServerAddr()); 	
 		         }
+	        	 
+	        	 text.setText(currentBot.getServerAddr());
 	         }
 
 	         final ListView list = (ListView) view.findViewById(R.id.botListView2);
 	         list.setAdapter(arrayAdapter);
-	        // ((CheckedTextView) list.getChildAt(currentIndex)).setChecked(true);
 	         AlertDialog.Builder builder = new AlertDialog.Builder(ControlsActivity.this);
 	         
 	             builder.setIcon(R.drawable.alert_dialog_icon);
@@ -668,16 +666,15 @@ public class ControlsActivity extends Activity
 	             });
 	             
 	            final  AlertDialog alert = builder.create();
-	          //  list.
-	            //((CheckedTextView) list.getChildAt(currentIndex)).setChecked(true);
 	         list.setOnItemClickListener(new OnItemClickListener() {
 	        	 @Override
 	        	 public void onItemClick(AdapterView<?> arg0, View arg1, int arg2, long arg3) {
 	        	  CheckedTextView tv = (CheckedTextView) arg1;
 	        	  String s = tv.getText().toString().substring(0,1);
-	        	  //toast(s);
 	        	  int index = Integer.parseInt(s);
 	        	  switchBot(index);
+	        	  text.setText(currentBot.getServerAddr());
+	        	  alert.setView(view);
 	        	  alert.dismiss();
 	       	 } });
 	        return alert;

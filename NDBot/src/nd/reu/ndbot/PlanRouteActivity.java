@@ -143,7 +143,7 @@ public class PlanRouteActivity extends Activity {
             	String s = lengthText.getText().toString();
             	if(s != null)
             	{
-                	if(listText == null)
+                	if(commandString == null)
             		{
                 		Route = "R"+s+" ";
                 		listText.setText("R"+s+" ");
